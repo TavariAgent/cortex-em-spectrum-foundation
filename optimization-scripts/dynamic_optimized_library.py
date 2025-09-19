@@ -1,5 +1,5 @@
 """
-🏴‍☠️ DYNAMIC OPTIMIZED LIBRARY TREASURE 🏴‍☠️
+DYNAMIC OPTIMIZED LIBRARY
 Memory-Efficient Storage with C-Level Control + Dynamic Caching System
 
 "Maximum Performance, Minimum Memory": Combines __slots__ optimization with 
@@ -15,9 +15,6 @@ Features:
 
 Perfect for: Memory-critical applications, large datasets, performance optimization
 Memory Target: 70-90% memory reduction compared to standard Python objects
-
-Author: Treasure Trove Archives  
-License: MIT (Optimized memory for everyone!)
 """
 
 import sys
@@ -527,7 +524,7 @@ def demonstrate_dynamic_optimized_library():
     return library, stats
 
 if __name__ == "__main__":
-    print("🏴‍☠️ DYNAMIC OPTIMIZED LIBRARY TREASURE")
+    print("DYNAMIC OPTIMIZED LIBRARY")
     print("C-Level Memory Control + Dynamic Term Storage")
     print("=" * 90)
     print("\"When every byte counts and every operation is cached for maximum efficiency\"")

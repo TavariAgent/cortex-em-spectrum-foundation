@@ -1,5 +1,5 @@
 """
-🏴‍☠️ CONTEXT OVERFLOW GUARD TREASURE 🏴‍☠️
+CONTEXT OVERFLOW GUARD
 Advanced Execution Context Control + Dynamic Overflow Reassignment
 
 "When Context Explodes, We Adapt": Automatically handles context overflow by 
@@ -18,9 +18,6 @@ Features:
 
 Perfect for: Memory-intensive operations, context explosion scenarios, performance-critical code
 Optimization Target: 50-80% performance improvement during context overflow situations
-
-Author: Treasure Trove Archives
-License: MIT (Context control for everyone!)
 """
 
 import time
@@ -812,7 +809,7 @@ class AdvancedContextOverflowGuard(ContextOverflowGuard):
 def demonstrate_context_overflow_guard():
     """🎭 Demonstrate the context overflow guard"""
     
-    print("🏴‍☠️ CONTEXT OVERFLOW GUARD TREASURE")
+    print("CONTEXT OVERFLOW GUARD")
     print("=" * 80)
     print("Advanced Execution Context Control + Dynamic Overflow Reassignment")
     print("")
@@ -936,7 +933,7 @@ def demonstrate_context_overflow_guard():
     return stats
 
 if __name__ == "__main__":
-    print("🏴‍☠️ CONTEXT OVERFLOW GUARD TREASURE")
+    print("CONTEXT OVERFLOW GUARD")
     print("Dynamic Context Control + Overflow Protection")
     print("=" * 90)
     print("\"When your context explodes, we adapt and overcome\"")
@@ -959,4 +956,3 @@ if __name__ == "__main__":
     print("10. Memory growth monitoring and prediction")
     print("11. Performance statistics and reporting")
     print("12. Worker cleanup and resource management")
-    print("\n🏴‍☠️ Your contexts can now handle RECURSIVE OVERFLOW like a BOSS! 🤯⚡🚀")

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <ItemGroup Label="ProjectConfigurations">
+        <ProjectConfiguration Include="Debug|x64">
+            <Configuration>Debug</Configuration>
+            <Platform>x64</Platform>
+        </ProjectConfiguration>
+        <ProjectConfiguration Include="Release|x64">
+            <Configuration>Release</Configuration>
+            <Platform>x64</Platform>
+        </ProjectConfiguration>
+    </ItemGroup>
+
+    <PropertyGroup Label="Globals">
+        <VCProjectVersion>16.0</VCProjectVersion>
+        <ProjectGuid>{12345678-1234-5678-9012-123456789012}</ProjectGuid>
+        <RootNamespace>CortexEMSpectrumFoundation</RootNamespace>
+        <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    </PropertyGroup>
+
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+        <ConfigurationType>Application</ConfigurationType>
+        <UseDebugLibraries>true</UseDebugLibraries>
+        <PlatformToolset>v143</PlatformToolset>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+        <ConfigurationType>Application</ConfigurationType>
+        <UseDebugLibraries>false</UseDebugLibraries>
+        <PlatformToolset>v143</PlatformToolset>
+        <WholeProgramOptimization>true</WholeProgramOptimization>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+        <IncludePath>cpp-foundation\include;$(BoostRoot);$(IncludePath)</IncludePath>
+        <LibraryPath>$(BoostRoot)\lib;$(LibraryPath)</LibraryPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+        <IncludePath>cpp-foundation\include;$(BoostRoot);$(IncludePath)</IncludePath>
+        <LibraryPath>$(BoostRoot)\lib;$(LibraryPath)</LibraryPath>
+    </PropertyGroup>
+
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <LanguageStandard>stdcpp17</LanguageStandard>
+            <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+        <ClCompile>
+            <WarningLevel>Level3</WarningLevel>
+            <FunctionLevelLinking>true</FunctionLevelLinking>
+            <IntrinsicFunctions>true</IntrinsicFunctions>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+            <LanguageStandard>stdcpp17</LanguageStandard>
+            <Optimization>MaxSpeed</Optimization>
+            <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+        </ClCompile>
+        <Link>
+            <SubSystem>Console</SubSystem>
+            <EnableCOMDATFolding>true</EnableCOMDATFolding>
+            <OptimizeReferences>true</OptimizeReferences>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+
+    <ItemGroup>
+        <ClInclude Include="cpp-foundation\include\cortex_baseline_processor.hpp" />
+        <ClInclude Include="cpp-foundation\include\cortex_buffer_baseline.hpp" />
+        <ClInclude Include="cpp-foundation\include\intelligent_term_delegator.hpp" />
+        <ClInclude Include="cpp-foundation\include\precision_safe_threading.hpp" />
+        <ClInclude Include="cpp-foundation\include\context_overflow_guard.hpp" />
+        <ClInclude Include="cpp-foundation\include\adaptive_gpu_delegation.hpp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ClCompile Include="cpp-foundation\src\precision_threading_integration.cpp" />
+        <ClCompile Include="cpp-foundation\src\context_overflow_integration.cpp" />
+        <ClCompile Include="cpp-foundation\src\main.cpp" />
+    </ItemGroup>
+
+    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

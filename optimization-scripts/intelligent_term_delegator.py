@@ -1,5 +1,5 @@
 """
-🏴‍☠️ INTELLIGENT TERM DELEGATOR & RE-COMBINER TREASURE 🏴‍☠️
+INTELLIGENT TERM DELEGATOR & RE-COMBINER
 Advanced Multi-Threading for Complex Operations with Byte Cost Analysis
 
 "When Complexity Meets Intelligence": Automatically detects operation complexity,
@@ -19,9 +19,6 @@ Architecture:
 - Group 2: Split arrays (all other threads) for low-byte terms
 - Term Delegator: Analyzes and routes terms based on byte cost
 - Re-Combiner: Intelligently merges results from both groups
-
-Author: Treasure Trove Archives
-License: MIT (Intelligent delegation for everyone!)
 """
 
 import time

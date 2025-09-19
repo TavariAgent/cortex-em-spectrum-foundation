@@ -7,8 +7,6 @@ Dynamically adapts GPU delegation based on hardware capabilities:
 - GTX 1060 (Pascal) - Conservative settings for stability
 - RTX 4070 Super (Ada Lovelace) - Aggressive optimization
 - Universal compatibility across all CUDA architectures
-
-Author: BoneKey Mathematical Processing Empire
 """
 
 import sys

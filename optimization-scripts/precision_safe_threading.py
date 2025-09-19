@@ -15,9 +15,6 @@ Strategy:
 - Thread-safe result accumulation
 - Order-preserving summation (prevents precision drift)
 - Overflow guard integration for safety
-
-Author: Treasure Trove Archives
-License: MIT (Precision-first multi-threading!)
 """
 
 import time
