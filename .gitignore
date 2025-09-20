@@ -1,0 +1,40 @@
+# Build Artifacts
+*.o
+*.obj
+*.exe
+*.out
+a.out
+*.lib
+*.dll
+*.so
+*.dylib
+build/
+cmake-build-*/
+Debug/
+Release/
+
+# IDE/Editor Specific Files
+.vs/
+*.suo
+*.user
+*.ncb
+*.opensdf
+*.sdf
+.idea/
+.project
+.cproject
+.settings/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.vscode/
+
+# Temporary Files and Logs
+*~
+*.log
+*.tmp
+*.swp
+temp/
+log/
+
+# Sensitive Data
+config.local.h
