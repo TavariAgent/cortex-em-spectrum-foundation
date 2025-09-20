@@ -2,7 +2,7 @@
 
 **Where EM sight combines LLM based compute.**
 
-## 🏴‍☠️ Python Optimization Foundations
+## Python Optimization Foundations
 
 This project translates advanced Python optimization algorithms to C++:
 
