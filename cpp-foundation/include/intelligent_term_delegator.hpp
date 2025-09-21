@@ -15,9 +15,6 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace cortex {
-namespace delegation {
-
-    using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
 struct TermComplexity {
     CosmicPrecision term_value;
@@ -256,31 +253,44 @@ private:
         };
     }
 
-    // 📏 BYTE COST CALCULATION (PYTHON LOGIC TRANSLATED!)
+    // 📏 BYTE COST CALCULATION (reworked to minimum + 16B floor + 8B alignment)
     size_t calculate_term_byte_cost(const CosmicPrecision& term) const {
         try {
-            // Convert to string to measure precision requirements
-            std::string str_repr = term.str(0, std::ios_base::fmtflags(0));
+            // Canonical string representation (avoid forcing scientific)
+            std::string s = term.str(0, std::ios_base::fmtflags(0));
 
-            size_t base_cost = str_repr.length() + 16;
-
-            if (str_repr.length() > 50) {
-                base_cost += str_repr.length() / 2;
+            // Use only the mantissa portion if scientific notation is present
+            std::string mantissa = s;
+            if (auto epos = s.find_first_of("eE"); epos != std::string::npos) {
+                mantissa = s.substr(0, epos);
             }
 
-            // Prefer Boost's abs for multiprecision numbers
-            using boost::multiprecision::abs;
-            if (abs(term) > CosmicPrecision("1e10")) {
-                base_cost += 32;  // Large magnitude cost
+            // Count decimal digits only (ignore sign, decimal point, etc.)
+            size_t digit_count = 0;
+            for (char c : mantissa) {
+                if (c >= '0' && c <= '9') ++digit_count;
             }
+            if (digit_count == 0) digit_count = 1;  // treat as at least 1 digit
 
-            if (str_repr.find('e') != std::string::npos) {
-                base_cost += 16;
-            }
+            // Minimal bits needed ~ ceil(digits * log2(10))
+            // Use integer math to avoid extra headers: log2(10) ~ 3.3219 => 3322/1000 is a safe ceil-ish factor
+            constexpr size_t LOG2_10_NUM = 3322;  // numerator
+            constexpr size_t LOG2_10_DEN = 1000;  // denominator
+            size_t bits = (digit_count * LOG2_10_NUM + LOG2_10_DEN - 1) / LOG2_10_DEN;  // ceil
 
-            return base_cost;
+            // Convert to bytes: ceil(bits / 8)
+            size_t bytes = (bits + 7) / 8;
+
+            // Enforce minimum 16 bytes
+            if (bytes < 16) bytes = 16;
+
+            // Round up to nearest multiple of 8
+            bytes = (bytes + 7) & ~static_cast<size_t>(7);
+
+            return bytes;
         } catch (...) {
-            return 64;  // Default 64 bytes for calculation errors
+            // Fallback: minimum aligned block
+            return 16;
         }
     }
 
@@ -307,5 +317,4 @@ private:
     }
 };
 
-} // namespace delegation
 } // namespace cortex

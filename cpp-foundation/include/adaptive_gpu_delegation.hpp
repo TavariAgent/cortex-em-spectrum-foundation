@@ -16,9 +16,7 @@
 #endif
 
 namespace cortex {
-namespace gpu {
 
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
 
 // 🎮 GPU HARDWARE CONFIGURATION
 struct GPUConfig {
@@ -599,5 +597,4 @@ public:
     bool is_cuda_initialized() const { return cuda_initialized; }
 };
 
-} // namespace gpu
 } // namespace cortex

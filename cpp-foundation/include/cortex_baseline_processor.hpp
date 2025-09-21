@@ -9,9 +9,6 @@
 #include "scene_operand_recognizer.hpp"
 
 namespace cortex {
-namespace baseline {
-
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
 
 class CortexBaselineProcessor {
 private:
@@ -173,5 +170,4 @@ public:
     }
 };
 
-} // namespace baseline
 } // namespace cortex

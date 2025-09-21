@@ -8,7 +8,7 @@
 // Include your electromagnetic spectrum foundation
 #include "static_frame_generator.hpp"
 
-using namespace cortex::frames;
+using namespace cortex;
 
 void print_project_header() {
     std::cout << "RAINBOW CORTEX ELECTROMAGNETIC SPECTRUM FOUNDATION\n";

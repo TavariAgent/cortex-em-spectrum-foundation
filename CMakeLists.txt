@@ -64,7 +64,7 @@ endfunction()
 if(CORTEX_EM_SPECTRUM_BUILD_CLI)
     # Add a static library for the non-inline implementation of StaticFrameGenerator
     add_library(cortex_em_spectrum_static STATIC
-        cpp-foundation/src/static_frame_generator.cpp
+            cpp-foundation/src/static_frame_generator.cpp
     )
     target_link_libraries(cortex_em_spectrum_static PUBLIC cortex_em_spectrum)
     target_include_directories(cortex_em_spectrum_static PUBLIC
@@ -73,8 +73,8 @@ if(CORTEX_EM_SPECTRUM_BUILD_CLI)
     set_common_warnings(cortex_em_spectrum_static)
 
     add_executable(cortex_em_cli
-        cpp-foundation/src/main.cpp
-        # Add other non-conflicting sample sources as needed
+            cpp-foundation/src/main.cpp
+            # Add other non-conflicting sample sources as needed
         # e.g., cpp-foundation/src/precision_threading_integration.cpp
     )
     # Optional; redundant if CMAKE_CXX_STANDARD is already 17

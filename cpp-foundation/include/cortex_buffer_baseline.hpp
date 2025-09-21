@@ -7,7 +7,6 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace cortex {
-namespace baseline {
 
     using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
@@ -317,5 +316,4 @@ private:
     }
 };
 
-} // namespace baseline
 } // namespace cortex
