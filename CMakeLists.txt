@@ -62,15 +62,25 @@ endfunction()
 
 # CLI sample
 if(CORTEX_EM_SPECTRUM_BUILD_CLI)
+    # Add a static library for the non-inline implementation of StaticFrameGenerator
+    add_library(cortex_em_spectrum_static STATIC
+        cpp-foundation/src/static_frame_generator.cpp
+    )
+    target_link_libraries(cortex_em_spectrum_static PUBLIC cortex_em_spectrum)
+    target_include_directories(cortex_em_spectrum_static PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp-foundation/include
+    )
+    set_common_warnings(cortex_em_spectrum_static)
+
     add_executable(cortex_em_cli
-            cpp-foundation/src/main.cpp
-            # Add other non-conflicting sample sources as needed
-            # e.g., cpp-foundation/src/precision_threading_integration.cpp
+        cpp-foundation/src/main.cpp
+        # Add other non-conflicting sample sources as needed
+        # e.g., cpp-foundation/src/precision_threading_integration.cpp
     )
     # Optional; redundant if CMAKE_CXX_STANDARD is already 17
     target_compile_features(cortex_em_cli PRIVATE cxx_std_17)
 
-    target_link_libraries(cortex_em_cli PRIVATE cortex_em_spectrum Threads::Threads)
+    target_link_libraries(cortex_em_cli PRIVATE cortex_em_spectrum_static Threads::Threads)
     set_common_warnings(cortex_em_cli)
 endif()
 

@@ -128,7 +128,7 @@ StaticFrame StaticFrameGenerator::generate_em_spectrum_frame(int width, int heig
         return v;
     };
 
-    PixelRGB pixel = /* existing computed pixel */;
+    // Clamp the computed pixel values to [0,1] after scaling by intensity
     pixel.red   = clamp01(pixel.red   * intensity_scale);
     pixel.green = clamp01(pixel.green * intensity_scale);
     pixel.blue  = clamp01(pixel.blue  * intensity_scale);
