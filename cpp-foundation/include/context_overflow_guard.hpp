@@ -17,7 +17,7 @@
 namespace cortex {
 namespace overflow {
 
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
+    using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
 // 📊 CONTEXT STATISTICS (PYTHON DATACLASS → C++)
 struct ContextStats {

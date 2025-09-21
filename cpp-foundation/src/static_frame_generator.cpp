@@ -90,7 +90,7 @@ StaticFrame StaticFrameGenerator::generate_em_spectrum_frame(int width, int heig
     return frame;
 }
 
-PixelRGB StaticFrameGenerator::wavelength_to_rgb_pixel(const CosmicPrecision& wavelength_nm) {
+    PixelRGB StaticFrameGenerator::wavelength_to_rgb_pixel(const CosmicPrecision& wavelength_nm) {
     PixelRGB pixel;
 
     // Visible light spectrum conversion (380-750nm)
@@ -122,6 +122,16 @@ PixelRGB StaticFrameGenerator::wavelength_to_rgb_pixel(const CosmicPrecision& wa
     // Ensure alpha channel
     pixel.alpha = CosmicPrecision("1");
 
+    auto clamp01 = [](const CosmicPrecision& v) {
+        if (v < CosmicPrecision("0")) return CosmicPrecision("0");
+        if (v > CosmicPrecision("1")) return CosmicPrecision("1");
+        return v;
+    };
+
+    PixelRGB pixel = /* existing computed pixel */;
+    pixel.red   = clamp01(pixel.red   * intensity_scale);
+    pixel.green = clamp01(pixel.green * intensity_scale);
+    pixel.blue  = clamp01(pixel.blue  * intensity_scale);
     return pixel;
 }
 

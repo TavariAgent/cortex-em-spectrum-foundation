@@ -20,7 +20,8 @@
 #endif
 
 using namespace cortex::frames;
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
+
+using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
 void print_project_header() {
     std::cout << "🌈 CORTEX ELECTROMAGNETIC SPECTRUM FOUNDATION\n";
@@ -98,8 +99,11 @@ void test_frame_generation() {
 
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Set frame intensity parameters
+        generator.set_intensity_scale(CosmicPrecision("0.6")); // moderate brightness
+
         // Generate test electromagnetic spectrum frame
-        auto test_frame = generator.generate_test_frame(400, 300);
+        auto test_frame = generator.generate_test_frame(40, 30);
 
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration<double>(end_time - start_time).count();

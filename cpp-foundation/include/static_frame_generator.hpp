@@ -109,8 +109,10 @@ class StaticFrameGenerator {
 private:
     CosmicPrecision gamma_correction;
     bool high_precision_mode;
+    CosmicPrecision intensity_scale = CosmicPrecision("1.0");
 
 public:
+    void set_intensity_scale(const CosmicPrecision& s) { intensity_scale = s; }
     StaticFrameGenerator() : gamma_correction("2.2"), high_precision_mode(true) {
         std::cout << "RAINBOW Electromagnetic Spectrum Foundation initialized\n";
         std::cout << "   Precision: " << CORTEX_EM_SPECTRUM_PRECISION << " decimals\n";
