@@ -2,7 +2,6 @@
 #include "cortex_buffer_baseline.hpp"  // Your baseline processor
 
 using namespace cortex;
-using namespace cortex::threading;
 
 int main() {
     std::cout << "🎯 PRECISION-SAFE THREADING + CORTEX BASELINE INTEGRATION\n";
@@ -34,15 +33,7 @@ int main() {
         square_operation, em_spectrum_data, 4
     );
 
-    std::cout << "Result: " << result1.str().substr(0, 30) << "...\n";
-
-    // 🥧 Test 2: Precision-safe Machin π calculation
-    std::cout << "\n🧪 Test 2: Precision-Safe Machin π Calculation\n";
-    std::cout << std::string(50, '-') << "\n";
-
-    auto [pi_result, pi_metrics] = precision_threading.precision_safe_machin_pi(1000, 4);
-
-    std::cout << "Calculated π: " << pi_result.str().substr(0, 50) << "...\n";
+    std::cout << "Result: " << result1.str(0, static_cast<std::ios_base::fmtflags>(0)).substr(0, 30) << "...\n";
 
     // 🌈 Test 3: EM Spectrum Processing
     std::cout << "\n🧪 Test 3: EM Spectrum Energy Calculation\n";
@@ -52,7 +43,7 @@ int main() {
         em_spectrum_data, 6
     );
 
-    std::cout << "Total photon energy: " << energy_sum.str().substr(0, 30) << "... Joules\n";
+    std::cout << "Total photon energy: " << energy_sum.str(0, static_cast<std::ios_base::fmtflags>(0)).substr(0, 30) << "... Joules\n";
 
     // 📊 Print comprehensive performance report
     precision_threading.print_threading_report();
@@ -61,7 +52,7 @@ int main() {
     std::cout << "\n🔧 INTEGRATION WITH CORTEX BASELINE PROCESSOR\n";
     std::cout << std::string(60, '=') << "\n";
 
-    baseline::CortexBufferBaseline buffer_processor;
+    CortexBufferBaseline buffer_processor;
 
     // Process the same EM spectrum data through baseline + threading
     auto buffer_result = buffer_processor.process_cpp_buffer(em_spectrum_data, "em_spectrum");

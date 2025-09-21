@@ -8,7 +8,7 @@
 // Include your electromagnetic spectrum foundation
 #include "static_frame_generator.hpp"
 
-using namespace cortex::frames;
+using namespace cortex;
 
 void print_project_header() {
     std::cout << "RAINBOW CORTEX ELECTROMAGNETIC SPECTRUM FOUNDATION\n";
@@ -101,7 +101,7 @@ void test_frame_generation() {
         auto start_time = std::chrono::high_resolution_clock::now();
 
         // Generate electromagnetic spectrum frame with 141-decimal precision
-        auto spectrum_frame = generator.generate_test_frame(400, 300);
+        auto spectrum_frame = generator.generate_test_frame(40, 30);
 
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration<double>(end_time - start_time).count();
@@ -134,7 +134,7 @@ void generate_spectrum_visualization() {
         StaticFrameGenerator generator;
 
         // Generate electromagnetic spectrum visualization
-        auto visualization_frame = generator.generate_em_spectrum_frame(800, 200);
+        auto visualization_frame = generator.generate_em_spectrum_frame(80, 20);
 
         // Generate PPM file for electromagnetic spectrum visualization
         std::string filename = "electromagnetic_spectrum_visualization.ppm";

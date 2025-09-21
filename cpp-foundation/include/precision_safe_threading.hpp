@@ -3,6 +3,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <utility>
 #include <vector>
 #include <future>
 #include <unordered_map>
@@ -11,9 +12,6 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace cortex {
-namespace threading {
-
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
 
 struct PrecisionThreadResult {
     int thread_id;
@@ -22,12 +20,12 @@ struct PrecisionThreadResult {
     double calculation_time;
     size_t terms_processed;
 
-    PrecisionThreadResult(int id = -1,
-                         const CosmicPrecision& res = CosmicPrecision("0"),
+    explicit PrecisionThreadResult(int id = -1,
+                         CosmicPrecision  res = CosmicPrecision("0"),
                          bool precision = true,
                          double time = 0.0,
                          size_t terms = 0)
-        : thread_id(id), result(res), precision_maintained(precision),
+        : thread_id(id), result(std::move(res)), precision_maintained(precision),
           calculation_time(time), terms_processed(terms) {}
 };
 
@@ -110,5 +108,4 @@ private:
     bool validate_precision_maintained(const CosmicPrecision& result) const;
 };
 
-} // namespace threading
 } // namespace cortex

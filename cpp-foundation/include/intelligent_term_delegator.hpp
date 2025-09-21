@@ -1,16 +1,20 @@
 #pragma once
+#include <any>
+#include <random>
 #include <vector>
 #include <unordered_map>
 #include <thread>
 #include <mutex>
 #include <memory>
 #include <algorithm>
+#include <string>
+#include <chrono>
+#include <iostream>
+#include <ios>
+#include <cmath>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace cortex {
-namespace delegation {
-
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<141>;
 
 struct TermComplexity {
     CosmicPrecision term_value;
@@ -147,67 +151,63 @@ public:
     // 🎯 INTELLIGENT DELEGATION (PYTHON → C++)
     std::unordered_map<std::string, std::vector<CosmicPrecision>>
     delegate_terms(const std::vector<CosmicPrecision>& input_data,
-                   const std::unordered_map<std::string, std::any>& complexity_analysis) {
-
+                   const std::unordered_map<std::string, std::any>& complexity_analysis)
+    {
         auto start_time = std::chrono::high_resolution_clock::now();
 
         std::unordered_map<std::string, std::vector<CosmicPrecision>> delegated_terms = {
-            {"group1_complex", {}},    // Wide arrays for complex terms
-            {"group2_simple", {}}      // Split arrays for simple terms
+            {"group1_complex", {}},
+            {"group2_simple", {}}
         };
 
-        std::unordered_map<int, std::unordered_map<std::string, std::any>> delegation_map;
+        // Use size_t for the key to match i and avoid narrowing
+        std::unordered_map<size_t, std::unordered_map<std::string, std::any>> delegation_map;
 
-        // Pre-calculate byte costs for all terms (PYTHON)
-        if (input_data.size() <= 50000) {  // Full analysis for reasonable sizes
+        if (input_data.size() <= 50000) {
             for (size_t i = 0; i < input_data.size(); ++i) {
                 size_t byte_cost = calculate_term_byte_cost(input_data[i]);
 
-                if (byte_cost >= byte_cost_threshold * 2) {  // High complexity
+                if (byte_cost >= byte_cost_threshold * 2) {
                     delegated_terms["group1_complex"].push_back(input_data[i]);
                     delegation_stats.complex_terms++;
 
                     delegation_map[i] = {
-                        {"group", 1},
-                        {"complexity", std::string("complex")},
-                        {"byte_cost", static_cast<int>(byte_cost)}
+                        {"group",      1},                        // std::any holds int
+                        {"complexity", std::string("complex")},   // std::any holds std::string
+                        {"byte_cost",  byte_cost}                 // std::any holds size_t
                     };
-                } else {  // Low byte cost
+                } else {
                     delegated_terms["group2_simple"].push_back(input_data[i]);
                     delegation_stats.simple_terms++;
 
                     delegation_map[i] = {
-                        {"group", 2},
+                        {"group",      2},
                         {"complexity", std::string("simple")},
-                        {"byte_cost", static_cast<int>(byte_cost)}
+                        {"byte_cost",  byte_cost}
                     };
                 }
             }
         } else {
-            // Sampling strategy for very large datasets (PYTHON APPROACH!)
-            auto complexity_dist = std::any_cast<std::unordered_map<std::string, int>>(
-                complexity_analysis.at("complexity_distribution")
-            );
+            const auto& complexity_dist =
+                std::any_cast<const std::unordered_map<std::string, int>&>(
+                    complexity_analysis.at("complexity_distribution"));
 
-            double complex_ratio = static_cast<double>(complexity_dist["high"]) /
-                                  std::any_cast<int>(complexity_analysis.at("total_terms"));
+            double complex_ratio =
+                static_cast<double>(complexity_dist.at("high")) /
+                static_cast<double>(std::any_cast<int>(complexity_analysis.at("total_terms")));
 
             for (size_t i = 0; i < input_data.size(); ++i) {
                 size_t byte_cost;
-
-                if (i % 10 == 0) {  // Every 10th term gets full analysis
+                if (i % 10 == 0) {
                     byte_cost = calculate_term_byte_cost(input_data[i]);
                 } else {
-                    // Estimate based on complex ratio
                     static std::random_device rd;
                     static std::mt19937 gen(rd());
-                    static std::uniform_real_distribution<> dis(0.0, 1.0);
+                    static std::uniform_real_distribution<double> dis(0.0, 1.0);
 
-                    if (dis(gen) < complex_ratio) {
-                        byte_cost = byte_cost_threshold * 3;  // Assume complex
-                    } else {
-                        byte_cost = byte_cost_threshold / 2;  // Assume simple
-                    }
+                    byte_cost = (dis(gen) < complex_ratio)
+                                    ? byte_cost_threshold * 3
+                                    : byte_cost_threshold / 2;
                 }
 
                 if (byte_cost >= byte_cost_threshold * 2) {
@@ -221,62 +221,76 @@ public:
         }
 
         auto end_time = std::chrono::high_resolution_clock::now();
-        delegation_stats.delegation_time = std::chrono::duration<double>(end_time - start_time).count();
+        delegation_stats.delegation_time =
+            std::chrono::duration<double>(end_time - start_time).count();
 
         print_delegation_results(delegated_terms);
-
         return delegated_terms;
     }
 
 private:
     void setup_array_groups() {
-        // Group 1: Wide arrays (4 threads) for complex operations (PYTHON CONFIG)
+        const int total = std::max(1, total_threads);
+
+        // Reserve up to 4 for complex, but leave at least 1 for simple if possible.
+        int group1_threads = std::min(4, std::max(1, total - 1));
+        int group2_threads = total - group1_threads; // 0 if total == 1
+
         group1_config = {
-            1,                    // group_id
-            4,                    // thread_count
-            "wide",              // array_split_method
-            1000,                // max_terms_per_thread
-            "complex"            // complexity_filter
+            1,              // group_id
+            group1_threads, // thread_count
+            "wide",         // array_split_method
+            1000,           // max_terms_per_thread
+            "complex"       // complexity_filter
         };
 
-        // Group 2: Split arrays (remaining threads) for simple operations
-        int remaining_threads = std::max(1, total_threads - 4);
         group2_config = {
-            2,                    // group_id
-            remaining_threads,    // thread_count
-            "split",             // array_split_method
-            5000,                // max_terms_per_thread
-            "simple"             // complexity_filter
+            2,              // group_id
+            group2_threads, // thread_count (may be 0 when total==1)
+            "split",        // array_split_method
+            5000,           // max_terms_per_thread
+            "simple"        // complexity_filter
         };
     }
 
-    // 📏 BYTE COST CALCULATION (PYTHON LOGIC TRANSLATED!)
+    // 📏 BYTE COST CALCULATION (reworked to minimum + 16B floor + 8B alignment)
     size_t calculate_term_byte_cost(const CosmicPrecision& term) const {
         try {
-            // Convert to string to measure precision requirements
-            std::string str_repr = term.str();
+            // Canonical string representation (avoid forcing scientific)
+            std::string s = term.str(0, std::ios_base::fmtflags(0));
 
-            // Base cost for Decimal precision
-            size_t base_cost = str_repr.length() + 16;  // Decimal overhead
-
-            // Additional cost for very high precision numbers
-            if (str_repr.length() > 50) {
-                base_cost += str_repr.length() / 2;  // Extra cost for ultra-precision
+            // Use only the mantissa portion if scientific notation is present
+            std::string mantissa = s;
+            if (auto epos = s.find_first_of("eE"); epos != std::string::npos) {
+                mantissa = s.substr(0, epos);
             }
 
-            // EM spectrum specific cost factors
-            if (abs(term) > CosmicPrecision("1e10")) {
-                base_cost += 32;  // Large magnitude cost
+            // Count decimal digits only (ignore sign, decimal point, etc.)
+            size_t digit_count = 0;
+            for (char c : mantissa) {
+                if (c >= '0' && c <= '9') ++digit_count;
             }
+            if (digit_count == 0) digit_count = 1;  // treat as at least 1 digit
 
-            if (str_repr.find('e') != std::string::npos) {
-                base_cost += 16;  // Scientific notation cost
-            }
+            // Minimal bits needed ~ ceil(digits * log2(10))
+            // Use integer math to avoid extra headers: log2(10) ~ 3.3219 => 3322/1000 is a safe ceil-ish factor
+            constexpr size_t LOG2_10_NUM = 3322;  // numerator
+            constexpr size_t LOG2_10_DEN = 1000;  // denominator
+            size_t bits = (digit_count * LOG2_10_NUM + LOG2_10_DEN - 1) / LOG2_10_DEN;  // ceil
 
-            return base_cost;
+            // Convert to bytes: ceil(bits / 8)
+            size_t bytes = (bits + 7) / 8;
 
+            // Enforce minimum 16 bytes
+            if (bytes < 16) bytes = 16;
+
+            // Round up to nearest multiple of 8
+            bytes = (bytes + 7) & ~static_cast<size_t>(7);
+
+            return bytes;
         } catch (...) {
-            return 64;  // Default 64 bytes for calculation errors
+            // Fallback: minimum aligned block
+            return 16;
         }
     }
 
@@ -303,5 +317,4 @@ private:
     }
 };
 
-} // namespace delegation
 } // namespace cortex

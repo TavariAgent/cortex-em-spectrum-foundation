@@ -1,82 +1,25 @@
 #pragma once
-
-// Electromagnetic spectrum foundation configuration
-#ifndef CORTEX_EM_SPECTRUM_PRECISION
-#define CORTEX_EM_SPECTRUM_PRECISION 141
-#endif
-
-#ifndef CORTEX_ELECTROMAGNETIC_FOUNDATION
-#define CORTEX_ELECTROMAGNETIC_FOUNDATION
-#endif
-
-// Standard C++ includes
-#include <iostream>
 #include <vector>
-#include <string>
-#include <thread>
-#include <chrono>
-#include <memory>
 #include <fstream>
-#include <cmath>
-#include <algorithm>
-#include <iomanip>
 #include <sstream>
-
-// Windows-specific optimizations
-#ifdef _WIN32
-    #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-    #endif
-    #ifndef NOMINMAX
-    #define NOMINMAX
-    #endif
-#endif
-
-// Math constants
-#ifndef _USE_MATH_DEFINES
-#define _USE_MATH_DEFINES
-#include <math.h>
-#endif
-
-// Complete Boost multiprecision includes
+#include <iomanip>
+#include <iostream>
+#include <chrono>
+#include <algorithm>
 #include <boost/multiprecision/cpp_dec_float.hpp>
-#include <boost/multiprecision/number.hpp>
-#include <boost/math/special_functions/pow.hpp>
-#include <boost/multiprecision/detail/default_ops.hpp>
 
 namespace cortex {
-namespace frames {
 
-// 141-decimal precision electromagnetic spectrum foundation
 using CosmicPrecision = boost::multiprecision::number<boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>>;
 
-// Helper function for safe CosmicPrecision to double conversion
-inline double cosmic_to_double(const CosmicPrecision& value) {
-    return static_cast<double>(value);
-}
-
-// Helper function for safe CosmicPrecision to int conversion
-inline int cosmic_to_int(const CosmicPrecision& value) {
-    return static_cast<int>(static_cast<double>(value));
-}
-
-// Helper function for safe CosmicPrecision stream output
-inline std::string cosmic_to_string(const CosmicPrecision& value, int precision = 6) {
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(precision);
-    oss << value;
-    return oss.str();
-}
-
 // Electromagnetic spectrum constants with 141-decimal precision
-const CosmicPrecision VIOLET_MIN_WAVELENGTH("380.0");
-const CosmicPrecision BLUE_WAVELENGTH("450.0");
-const CosmicPrecision GREEN_WAVELENGTH("550.0");
-const CosmicPrecision YELLOW_WAVELENGTH("580.0");
-const CosmicPrecision RED_WAVELENGTH("650.0");
-const CosmicPrecision RED_MAX_WAVELENGTH("750.0");
+inline const CosmicPrecision VIOLET_MIN_WAVELENGTH("380.0");
+inline const CosmicPrecision BLUE_WAVELENGTH("450.0");
+inline const CosmicPrecision GREEN_WAVELENGTH("550.0");
+inline const CosmicPrecision YELLOW_WAVELENGTH("580.0");
+inline const CosmicPrecision RED_WAVELENGTH("650.0");
+inline const CosmicPrecision RED_MAX_WAVELENGTH("750.0");
 
-// Perfect electromagnetic spectrum pixel representation
 struct CosmicPixel {
     CosmicPrecision red;
     CosmicPrecision green;
@@ -88,7 +31,6 @@ struct CosmicPixel {
         : red(r), green(g), blue(b), alpha(a) {}
 };
 
-// Electromagnetic spectrum frame with 141-decimal precision
 struct ElectromagneticFrame {
     std::vector<CosmicPixel> pixels;
     size_t width;
@@ -104,11 +46,24 @@ struct ElectromagneticFrame {
     }
 };
 
-// Your electromagnetic spectrum foundation class
 class StaticFrameGenerator {
 private:
     CosmicPrecision gamma_correction;
     bool high_precision_mode;
+
+    struct PixelAccumulator {
+        CosmicPrecision r{0}, g{0}, b{0}, w{0};
+        void add(const CosmicPixel& p, const CosmicPrecision& weight = CosmicPrecision(1)) {
+            r += p.red   * weight;
+            g += p.green * weight;
+            b += p.blue  * weight;
+            w += weight;
+        }
+        CosmicPixel to_pixel() const {
+            if (w == 0) return CosmicPixel(0,0,0,1);
+            return CosmicPixel(r / w, g / w, b / w, 1);
+        }
+    };
 
 public:
     StaticFrameGenerator() : gamma_correction("2.2"), high_precision_mode(true) {
@@ -117,107 +72,200 @@ public:
         std::cout << "   Wavelength range: " << VIOLET_MIN_WAVELENGTH << "nm - " << RED_MAX_WAVELENGTH << "nm\n";
     }
 
-    // Convert wavelength to RGB with 141-decimal precision
+    // Convert wavelength to RGB with 141-decimal precision (kept as-is)
     CosmicPixel wavelength_to_rgb_pixel(const CosmicPrecision& wavelength) {
-        CosmicPrecision intensity = wavelength_to_rgb_intensity(wavelength);
+        using boost::multiprecision::pow;
 
+        CosmicPrecision intensity = wavelength_to_rgb_intensity(wavelength);
         CosmicPrecision red(0), green(0), blue(0);
 
         if (wavelength >= CosmicPrecision("380") && wavelength < CosmicPrecision("440")) {
-            // Violet to blue transition
             red = -(wavelength - CosmicPrecision("440")) / CosmicPrecision("60");
             blue = CosmicPrecision("1.0");
         } else if (wavelength >= CosmicPrecision("440") && wavelength < CosmicPrecision("490")) {
-            // Blue to cyan transition
             green = (wavelength - CosmicPrecision("440")) / CosmicPrecision("50");
             blue = CosmicPrecision("1.0");
         } else if (wavelength >= CosmicPrecision("490") && wavelength < CosmicPrecision("510")) {
-            // Cyan to green transition
             green = CosmicPrecision("1.0");
             blue = -(wavelength - CosmicPrecision("510")) / CosmicPrecision("20");
         } else if (wavelength >= CosmicPrecision("510") && wavelength < CosmicPrecision("580")) {
-            // Green to yellow transition
             red = (wavelength - CosmicPrecision("510")) / CosmicPrecision("70");
             green = CosmicPrecision("1.0");
         } else if (wavelength >= CosmicPrecision("580") && wavelength < CosmicPrecision("645")) {
-            // Yellow to red transition
             red = CosmicPrecision("1.0");
             green = -(wavelength - CosmicPrecision("645")) / CosmicPrecision("65");
         } else if (wavelength >= CosmicPrecision("645") && wavelength <= CosmicPrecision("750")) {
-            // Pure red
             red = CosmicPrecision("1.0");
         }
 
-        // Apply intensity and gamma correction with 141-decimal precision
-        red = boost::multiprecision::pow(red * intensity, CosmicPrecision("1") / gamma_correction);
-        green = boost::multiprecision::pow(green * intensity, CosmicPrecision("1") / gamma_correction);
-        blue = boost::multiprecision::pow(blue * intensity, CosmicPrecision("1") / gamma_correction);
+        // Apply intensity and gamma correction
+        red   = pow(red   * intensity, CosmicPrecision("1") / gamma_correction);
+        green = pow(green * intensity, CosmicPrecision("1") / gamma_correction);
+        blue  = pow(blue  * intensity, CosmicPrecision("1") / gamma_correction);
 
         return CosmicPixel(red, green, blue);
     }
 
-    // Calculate wavelength intensity with 141-decimal precision
     CosmicPrecision wavelength_to_rgb_intensity(const CosmicPrecision& wavelength) {
         CosmicPrecision intensity("1.0");
-
         if (wavelength >= CosmicPrecision("380") && wavelength < CosmicPrecision("420")) {
             intensity = CosmicPrecision("0.3") + CosmicPrecision("0.7") * (wavelength - CosmicPrecision("380")) / CosmicPrecision("40");
         } else if (wavelength >= CosmicPrecision("701") && wavelength <= CosmicPrecision("750")) {
             intensity = CosmicPrecision("0.3") + CosmicPrecision("0.7") * (CosmicPrecision("750") - wavelength) / CosmicPrecision("49");
         }
-
         return intensity;
     }
 
-    // Generate electromagnetic spectrum frame with 141-decimal precision
+    // Existing simple frame (per-pixel sampling) with progress heartbeat
     ElectromagneticFrame generate_test_frame(size_t width, size_t height) {
+        using clock = std::chrono::steady_clock;
+        auto t0 = clock::now();
+
         ElectromagneticFrame frame(width, height);
 
+        if (width == 0 || height == 0) {
+            std::cout << "Nothing to render (width or height is zero)\n";
+            frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
+            return frame;
+        }
+
+        // Print every ~10% of rows (at least once per row for tiny heights)
+        const size_t report_interval = std::max<size_t>(1, height / 10);
+
+        // Avoid reallocs during push_back
+        frame.pixels.reserve(width * height);
+
+        std::cout << "Rendering " << width << "x" << height << "...\n";
+
         for (size_t y = 0; y < height; ++y) {
+            if ((y % report_interval) == 0) {
+                const size_t pct = (100 * y) / height;
+                std::cout << "Progress: " << pct << "% (" << y << "/" << height << " rows)\r" << std::flush;
+            }
+
             for (size_t x = 0; x < width; ++x) {
-                // Map x coordinate to wavelength across electromagnetic spectrum
+                // Sample at pixel center in NDC
+                CosmicPrecision xN = (CosmicPrecision(x) + CosmicPrecision("0.5")) / CosmicPrecision(width);
                 CosmicPrecision wavelength = VIOLET_MIN_WAVELENGTH +
-                    (RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH) * CosmicPrecision(x) / CosmicPrecision(width - 1);
+                    (RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH) * xN;
 
                 CosmicPixel pixel = wavelength_to_rgb_pixel(wavelength);
                 frame.pixels.push_back(pixel);
-
-                // Accumulate total energy
                 frame.total_energy += pixel.red + pixel.green + pixel.blue;
             }
         }
 
-        frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
+        // Final heartbeat and timing
+        auto t1 = clock::now();
+        double secs = std::chrono::duration<double>(t1 - t0).count();
+        std::cout << "Progress: 100% (" << height << "/" << height << " rows). Done in "
+                  << secs << "s\n";
 
+        frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
         return frame;
     }
 
-    // Generate electromagnetic spectrum visualization
-    ElectromagneticFrame generate_em_spectrum_frame(size_t width, size_t height) {
-        return generate_test_frame(width, height);
+    // Subpixel sample representation (optional public type)
+    struct SubpixelSample {
+        CosmicPrecision xN;   // normalized [0,1)
+        CosmicPrecision yN;   // normalized [0,1)
+        CosmicPixel color;
+        CosmicPrecision weight{1};
+    };
+
+    // Generic converter: subpixel samples -> pixel grid (box filter / weighted average)
+    ElectromagneticFrame resample_subpixels_to_pixels(
+        const std::vector<SubpixelSample>& samples,
+        size_t width, size_t height
+    ) {
+        std::vector<PixelAccumulator> acc(width * height);
+
+        for (const auto& s : samples) {
+            // Map normalized coords to pixel index (clamp to edge)
+            double xd = std::min(std::max(0.0, static_cast<double>(s.xN)), 0.999999999);
+            double yd = std::min(std::max(0.0, static_cast<double>(s.yN)), 0.999999999);
+            size_t ix = static_cast<size_t>(xd * width);
+            size_t iy = static_cast<size_t>(yd * height);
+            size_t idx = iy * width + ix;
+
+            acc[idx].add(s.color, s.weight);
+        }
+
+        ElectromagneticFrame frame(width, height);
+        frame.pixels.resize(width * height);
+
+        for (size_t i = 0; i < acc.size(); ++i) {
+            frame.pixels[i] = acc[i].to_pixel();
+            frame.total_energy += frame.pixels[i].red + frame.pixels[i].green + frame.pixels[i].blue;
+        }
+
+        frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
+        return frame;
     }
 
-    // Save electromagnetic spectrum frame data
-    void save_frame_data(const ElectromagneticFrame& frame, const std::string& filename) {
-        std::ofstream file(filename);
-        if (file.is_open()) {
-            file << "# Electromagnetic Spectrum Frame Data - 141-decimal precision\n";
-            file << "# TavariAgent/cortex-em-spectrum-foundation\n";
-            file << "# Width: " << frame.width << ", Height: " << frame.height << "\n";
-            file << "# Spectrum Range: " << frame.spectrum_range << "nm\n";
-            file << "# Total Energy: " << frame.total_energy << "\n";
-            file << "# Pixels: " << frame.pixels.size() << "\n";
+    // Direct supersampled rendering without storing all subpixel samples
+    ElectromagneticFrame generate_supersampled_frame(
+        size_t width, size_t height,
+        size_t spp_x, size_t spp_y,
+        bool jitter = false
+    ) {
+        std::vector<PixelAccumulator> acc(width * height);
 
-            for (size_t i = 0; i < frame.pixels.size(); ++i) {
-                const auto& pixel = frame.pixels[i];
-                file << pixel.red << " " << pixel.green << " " << pixel.blue << " " << pixel.alpha << "\n";
+        // Very light PRNG for jitter if requested
+        auto rand01 = []() -> double {
+            // xorshift64* minimalistic RNG per call (not cryptographic)
+            static uint64_t s = 0x9E3779B97F4A7C15ull;
+            s ^= s >> 12; s ^= s << 25; s ^= s >> 27;
+            uint64_t z = s * 0x2545F4914F6CDD1Dull;
+            return (z >> 11) * (1.0 / 9007199254740992.0); // ~[0,1)
+        };
+
+        for (size_t y = 0; y < height; ++y) {
+            for (size_t x = 0; x < width; ++x) {
+
+                for (size_t sy = 0; sy < spp_y; ++sy) {
+                    for (size_t sx = 0; sx < spp_x; ++sx) {
+                        double jx = jitter ? rand01() : 0.5;
+                        double jy = jitter ? rand01() : 0.5;
+
+                        // Subpixel in [0,1) of the pixel
+                        double fx = (static_cast<double>(sx) + jx) / static_cast<double>(spp_x);
+                        double fy = (static_cast<double>(sy) + jy) / static_cast<double>(spp_y);
+
+                        // Sample position in NDC at pixel center of subcell
+                        CosmicPrecision xN = (CosmicPrecision(x) + CosmicPrecision(fx)) / CosmicPrecision(width);
+                        CosmicPrecision yN = (CosmicPrecision(y) + CosmicPrecision(fy)) / CosmicPrecision(height);
+
+                        // For spectrum, wavelength varies only with x
+                        (void)yN; // reserved if you later vary with y as well
+                        CosmicPrecision wavelength = VIOLET_MIN_WAVELENGTH +
+                            (RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH) * xN;
+
+                        CosmicPixel sp = wavelength_to_rgb_pixel(wavelength);
+
+                        size_t idx = y * width + x;
+                        acc[idx].add(sp, CosmicPrecision("1"));
+                    }
+                }
             }
-
-            file.close();
-            std::cout << "DISK Electromagnetic spectrum frame saved: " << filename << "\n";
         }
+
+        // Finalize to frame (mean over spp)
+        ElectromagneticFrame frame(width, height);
+        frame.pixels.resize(width * height);
+
+        CosmicPrecision samples_per_pixel = CosmicPrecision(spp_x * spp_y);
+        for (size_t i = 0; i < acc.size(); ++i) {
+            // Box filter average
+            CosmicPixel p = acc[i].to_pixel();
+            // Since we added unit weights spp_x*spp_y times, to_pixel already divides by w
+            frame.pixels[i] = p;
+            frame.total_energy += p.red + p.green + p.blue;
+        }
+
+        frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
+        return frame;
     }
 };
 
-} // namespace frames
 } // namespace cortex

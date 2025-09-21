@@ -4,6 +4,8 @@
 
 using namespace cortex;
 
+using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
+
 int main() {
     std::cout << "🤯 CONTEXT OVERFLOW GUARD + COMPLETE CORTEX INTEGRATION\n";
     std::cout << "=" << std::string(80, '=') << "\n";
