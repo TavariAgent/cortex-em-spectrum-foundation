@@ -12,3 +12,5 @@ This project translates advanced Python optimization algorithms to C++:
 - **🤯 Context Overflow Guard** → Recursive self-capturing protection
 - **🚀 Adaptive GPU Delegation** → GTX 1060 vs RTX 4070 Super optimization
 - **🖼️ Static Frame Generator** → Electromagnetic spectrum visual processing
+
+![img.png](img.png)
