@@ -1,7 +1,7 @@
 #pragma once
+#include <utility>
 #include <vector>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <iostream>
 #include <chrono>
@@ -28,8 +28,8 @@ namespace cortex {
         CosmicPrecision alpha;
 
         CosmicPixel() : red(0), green(0), blue(0), alpha(1) {}
-        CosmicPixel(const CosmicPrecision& r, const CosmicPrecision& g, const CosmicPrecision& b, const CosmicPrecision& a = CosmicPrecision(1))
-            : red(r), green(g), blue(b), alpha(a) {}
+        CosmicPixel(CosmicPrecision  r, CosmicPrecision  g, CosmicPrecision  b, CosmicPrecision  a = CosmicPrecision(1))
+            : red(std::move(r)), green(std::move(g)), blue(std::move(b)), alpha(std::move(a)) {}
     };
 
     struct ElectromagneticFrame {
@@ -60,9 +60,9 @@ namespace cortex {
                 b += p.blue  * weight;
                 w += weight;
             }
-            CosmicPixel to_pixel() const {
-                if (w == 0) return CosmicPixel(0,0,0,1);
-                return CosmicPixel(r / w, g / w, b / w, 1);
+            [[nodiscard]] CosmicPixel to_pixel() const {
+                if (w == 0) return {0,0,0,1};
+                return {r / w, g / w, b / w, 1};
             }
         };
 
@@ -74,7 +74,7 @@ namespace cortex {
         }
 
         // Convert wavelength to RGB with 141-decimal precision (kept as-is)
-        CosmicPixel wavelength_to_rgb_pixel(const CosmicPrecision& wavelength) {
+        [[nodiscard]] CosmicPixel wavelength_to_rgb_pixel(const CosmicPrecision& wavelength) const {
             using boost::multiprecision::pow;
 
             CosmicPrecision intensity = wavelength_to_rgb_intensity(wavelength);
@@ -106,10 +106,10 @@ namespace cortex {
             green = pow(green * intensity, inv_gamma);
             blue  = pow(blue  * intensity, inv_gamma);
 
-            return CosmicPixel(red, green, blue);
+            return {red, green, blue};
         }
 
-        CosmicPrecision wavelength_to_rgb_intensity(const CosmicPrecision& wavelength) {
+        static CosmicPrecision wavelength_to_rgb_intensity(const CosmicPrecision& wavelength) {
             CosmicPrecision intensity("1.0");
             if (wavelength >= CosmicPrecision("380") && wavelength < CosmicPrecision("420")) {
                 intensity = CosmicPrecision("0.3") + CosmicPrecision("0.7") * (wavelength - CosmicPrecision("380")) / CosmicPrecision("40");
@@ -119,9 +119,9 @@ namespace cortex {
             return intensity;
         }
 
-        ElectromagneticFrame generate_test_frame(size_t width, size_t height) {
+        [[nodiscard]] ElectromagneticFrame generate_test_frame(size_t width, size_t height) const {
             using clock = std::chrono::steady_clock;
-            auto t0 = clock::now();
+            const auto t0 = clock::now();
 
             ElectromagneticFrame frame(width, height);
 
@@ -154,8 +154,8 @@ namespace cortex {
             }
 
             // Final heartbeat and timing
-            auto t1 = clock::now();
-            double secs = std::chrono::duration<double>(t1 - t0).count();
+            const auto t1 = clock::now();
+            const double secs = std::chrono::duration<double>(t1 - t0).count();
             std::cout << "Progress: 100% (" << height << "/" << height << " rows). Done in "
                       << secs << "s\n";
 
@@ -172,7 +172,7 @@ namespace cortex {
         };
 
         // Generic converter: subpixel samples -> pixel grid (box filter / weighted average)
-        ElectromagneticFrame resample_subpixels_to_pixels(
+        static ElectromagneticFrame resample_subpixels_to_pixels(
             const std::vector<SubpixelSample>& samples,
             size_t width, size_t height
         ) {
@@ -185,9 +185,9 @@ namespace cortex {
                     b += p.blue  * weight;
                     w += weight;
                 }
-                CosmicPixel to_pixel() const {
-                    if (w == 0) return CosmicPixel(0,0,0,1);
-                    return CosmicPixel(r / w, g / w, b / w, 1);
+                [[nodiscard]] CosmicPixel to_pixel() const {
+                    if (w == 0) return {0,0,0,1};
+                    return {r / w, g / w, b / w, 1};
                 }
             };
 
@@ -202,20 +202,28 @@ namespace cortex {
             // Clamp normalized coords safely below 1.0 to avoid ix==width
             const double one_minus = std::nextafter(1.0, 0.0);
 
-            for (const auto& s : samples) {
-                double xd = std::clamp(static_cast<double>(s.xN), 0.0, one_minus);
-                double yd = std::clamp(static_cast<double>(s.yN), 0.0, one_minus);
+            for (const auto&[xN, yN, color, weight] : samples) {
+                const double xd = std::clamp(static_cast<double>(xN), 0.0, one_minus);
+                const double yd = std::clamp(static_cast<double>(yN), 0.0, one_minus);
 
-                size_t ix = static_cast<size_t>(xd * static_cast<double>(width));
-                size_t iy = static_cast<size_t>(yd * static_cast<double>(height));
+                auto ix = static_cast<size_t>(xd * static_cast<double>(width));
+                auto iy = static_cast<size_t>(yd * static_cast<double>(height));
 
                 // Double-safety (in case of edge numeric quirks)
                 if (ix >= width)  ix = width  - 1;
                 if (iy >= height) iy = height - 1;
 
-                acc[iy * width + ix].add(s.color, s.weight);
+                acc[iy * width + ix].add(color, weight);
             }
-        }
-};
 
+            frame.pixels.resize(width * height);
+            for (size_t i = 0; i < acc.size(); ++i) {
+                frame.pixels[i] = acc[i].to_pixel();
+                frame.total_energy += frame.pixels[i].red + frame.pixels[i].green + frame.pixels[i].blue;
+            }
+
+            frame.spectrum_range = RED_MAX_WAVELENGTH - VIOLET_MIN_WAVELENGTH;
+            return frame;
+        }
+    };
 } // namespace cortex
