@@ -1,4 +1,5 @@
 #pragma once
+#include <any>
 #include <memory>
 #include <atomic>
 #include <thread>
@@ -134,7 +135,7 @@ private:
     // 🌌 STATIC CLASS-LEVEL TRACKING (PYTHON CLASS VARIABLES → C++)
     static ContextStats global_stats;
     static std::unordered_map<int, std::shared_ptr<ContextOverflowGuard>> active_contexts;
-    static std::unordered_map<int, std::unique_ptr<OverflowWorker>> overflow_workers;
+    static std::unordered_map<int, std::shared_ptr<OverflowWorker>> overflow_workers;
     static std::atomic<int> worker_counter;
     static std::atomic<int> context_counter;
     static constexpr size_t overflow_threshold_default_mb = 100;
@@ -375,8 +376,6 @@ public:
             std::cout << "❌ Context " << context_id << ": Worker "
                       << worker->worker_id << " failed: " << e.what() << "\n";
             throw;
-        } finally {
-            worker->is_active = false;
         }
     }
 
@@ -730,20 +729,11 @@ private:
         }
     }
 
-    std::unique_ptr<OverflowWorker> create_overflow_worker(size_t allocated_memory) {
-        int worker_id;
-        {
-            std::lock_guard<std::mutex> lock(stats_lock);
-            worker_id = ++worker_counter;
-            global_stats.worker_delegations++;
-        }
-
-        auto worker = std::make_unique<OverflowWorker>(worker_id, 0, allocated_memory);
-
-        overflow_workers[worker_id] = std::move(worker);
-        delegated_workers.push_back(worker_id);
-
-        return std::unique_ptr<OverflowWorker>(overflow_workers[worker_id].get());
+    std::shared_ptr<OverflowWorker> create_overflow_worker(size_t allocated_memory) {
+        int worker_id = ++worker_counter;
+        auto worker = std::make_shared<OverflowWorker>(worker_id, 0, allocated_memory);
+        overflow_workers[worker_id] = worker; delegated_workers.push_back(worker_id);
+        return worker;
     }
 
     template<typename Operation, typename... Args>
