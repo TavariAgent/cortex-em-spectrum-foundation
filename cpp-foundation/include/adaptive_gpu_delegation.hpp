@@ -15,8 +15,23 @@
 #include <cublas_v2.h>
 #endif
 
-namespace cortex {
+// Make this header self-contained for CosmicPrecision users
+#ifndef CORTEX_EM_SPECTRUM_PRECISION
+#define CORTEX_EM_SPECTRUM_PRECISION 141
+#endif
 
+namespace cortex {
+    using CosmicPrecision = boost::multiprecision::number<
+        boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>
+    >;
+}
+
+#ifdef CUDA_AVAILABLE
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+#endif
+
+namespace cortex {
 
 // 🎮 GPU HARDWARE CONFIGURATION
 struct GPUConfig {
@@ -173,7 +188,7 @@ public:
                                    const CosmicPrecision& exponent,
                                    int precision = 141) {
 
-        if (!should_use_gpu("exponential", 0, static_cast<double>(abs(exponent)))) {
+        if (!should_use_gpu("exponential", 0, static_cast<double>(boost::multiprecision::abs(exponent)))) {
             return cpu_exponential(base, exponent, precision);
         }
 

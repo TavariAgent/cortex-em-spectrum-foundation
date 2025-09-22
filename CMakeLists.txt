@@ -45,7 +45,6 @@ function(set_common_warnings target)
 endfunction()
 
 # Do not compile static_frame_generator.cpp here (header-based)
-
 if(CORTEX_EM_SPECTRUM_BUILD_CLI)
     add_library(cortex_em_spectrum_static STATIC
             cpp-foundation/src/static_frame_generator.cpp
@@ -61,8 +60,9 @@ if(CORTEX_EM_SPECTRUM_BUILD_CLI)
     )
     target_compile_features(cortex_em_cli PRIVATE cxx_std_17)
     target_link_libraries(cortex_em_cli PRIVATE cortex_em_spectrum_static Threads::Threads)
+    target_link_libraries(cortex_em_cli PRIVATE gdi32 user32)
+    target_sources(cortex_em_cli PRIVATE cpp-foundation/src/screen_capture_shim.cpp)
 
-    # NEW: Link GDI32 for screen capture on Windows
     if(WIN32)
         target_link_libraries(cortex_em_cli PRIVATE gdi32)
     endif()
@@ -79,9 +79,55 @@ if(CORTEX_EM_SPECTRUM_BUILD_VIZ)
     set_common_warnings(ElectromagneticSpectrumFoundation)
 endif()
 
-if(CORTEX_EM_SPECTRUM_ENABLE_CUDA)
-    enable_language(CUDA)
-    message(STATUS "CUDA enabled: add CUDA kernels/targets and link against cortex_em_spectrum")
+    # ===== CUDA: compile kernel if present, set archs, link runtimes =====
+    if(CORTEX_EM_SPECTRUM_ENABLE_CUDA)
+        find_package(CUDAToolkit REQUIRED)
+        enable_language(CUDA)
+
+    # Choose archs: default to GTX 1060 (Pascal, sm_61). You can override at configure time.
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
+        if(CMAKE_VERSION VERSION_LESS "3.24")
+            set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "CUDA archs" FORCE)  # GTX 1060
+        else()
+            # If you prefer auto-detect on newer CMake, uncomment next line:
+            # set(CMAKE_CUDA_ARCHITECTURES "native" CACHE STRING "CUDA archs" FORCE)
+            set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "CUDA archs" FORCE)
+        endif()
+    endif()
+
+    # Optional kernel library if you have spectrum_cuda.cu
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/cpp-foundation/src/spectrum_cuda.cu)
+        add_library(cortex_em_cuda STATIC
+                cpp-foundation/src/spectrum_cuda.cu
+                cpp-foundation/src/screen_capture_shim.cpp
+        )
+        target_include_directories(cortex_em_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cpp-foundation/include)
+        target_compile_definitions(cortex_em_cuda PRIVATE CUDA_AVAILABLE=1)
+        target_compile_options(cortex_em_cuda PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+        set_target_properties(cortex_em_cuda PROPERTIES
+                CUDA_SEPARABLE_COMPILATION ON
+                CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
+        )
+        target_link_libraries(cortex_em_cuda PUBLIC CUDA::cudart)
+    endif()
+
+    # The final exe does device link; it must also have CUDA_ARCHITECTURES
+    if(TARGET cortex_em_cli)
+        target_compile_definitions(cortex_em_cli PRIVATE CUDA_AVAILABLE=1)
+        set_target_properties(cortex_em_cli PROPERTIES
+                CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
+        )
+
+        if(TARGET cortex_em_cuda)
+            target_link_libraries(cortex_em_cli PRIVATE
+                    $<$<TARGET_EXISTS:CUDA::cudart>:CUDA::cudart>
+                    $<$<TARGET_EXISTS:CUDA::cudadevrt>:CUDA::cudadevrt>
+                    $<$<TARGET_EXISTS:CUDA::cublas>:CUDA::cublas>
+                    $<$<TARGET_EXISTS:CUDA::cublasLt>:CUDA::cublasLt>
+            )
+endif()
+
+    message(STATUS "CUDA enabled: archs=${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 
 include(GNUInstallDirs)
@@ -93,3 +139,4 @@ if(CORTEX_EM_SPECTRUM_BUILD_VIZ)
 endif()
 
 message(STATUS "CORTEX_EM_SPECTRUM_PRECISION = ${CORTEX_EM_SPECTRUM_PRECISION}")
+        endif()

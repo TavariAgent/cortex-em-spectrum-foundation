@@ -13,6 +13,7 @@
 #include "ppm_io.hpp"
 
 namespace cortex {
+    RawImage capture_primary_monitor_bgra();
 
 struct CalibrationParams {
     double gain_r{1.0}, gain_g{1.0}, gain_b{1.0};
@@ -26,7 +27,7 @@ struct CalibrationResult {
     size_t frames_used{0};
 
     // Ensure average_frame can be constructed
-    CalibrationResult(size_t w, size_t h) : average_frame(w, h) {}
+    CalibrationResult(const size_t w, const size_t h) : average_frame(w, h) {}
     CalibrationResult() : average_frame(0, 0) {}
 };
 
@@ -50,12 +51,12 @@ inline CalibrationResult calibrate_primary_monitor_10(
     int interval_ms = 80,
     bool save_average_ppm = true
 ) {
-    CalibrationResult out; // now valid (average_frame is constructed as 0x0)
-    out.frames_used = 0;
+    CalibrationResult result; // now valid (average_frame is constructed as 0x0)
+    result.frames_used = 0;
 
     if (target_w == 0 || target_h == 0 || frames <= 0) {
         std::cout << "Calibration skipped: invalid size/frames\n";
-        return out;
+        return result;
     }
 
     // Running sums for mean and histogram
@@ -86,13 +87,13 @@ inline CalibrationResult calibrate_primary_monitor_10(
             hist[bin]++;
         }
 
-        out.frames_used++;
+        result.frames_used++;
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
     }
 
-    if (out.frames_used == 0) {
+    if (result.frames_used == 0) {
         std::cout << "Calibration captured 0 frames.\n";
-        return out;
+        return result;
     }
 
     // Build average frame + stats
@@ -101,9 +102,9 @@ inline CalibrationResult calibrate_primary_monitor_10(
 
     double mean_r = 0.0, mean_g = 0.0, mean_b = 0.0, mean_luma = 0.0;
     for (size_t p = 0; p < target_w * target_h; ++p) {
-        double r = sum_r[p] / out.frames_used;
-        double g = sum_g[p] / out.frames_used;
-        double b = sum_b[p] / out.frames_used;
+        double r = sum_r[p] / result.frames_used;
+        double g = sum_g[p] / result.frames_used;
+        double b = sum_b[p] / result.frames_used;
 
         avg.pixels[p] = CosmicPixel(
             CosmicPrecision(r),
@@ -141,20 +142,26 @@ inline CalibrationResult calibrate_primary_monitor_10(
     }
     params.gamma = estimate_gamma_from_median(median_bin / 255.0);
 
-    out.average_frame = std::move(avg);
-    out.params = frames > 0 ? params : CalibrationParams{};
+    result.average_frame = std::move(avg);
 
-    if (save_average_ppm) {
-        write_ppm_p6("monitor_calibration_avg.ppm", out.average_frame);
+    if (result.frames_used > 0) {
+        result.params = params;
+    } else {
+        constexpr CalibrationParams default_params{};
+        result.params = default_params;
     }
 
-    std::cout << "Calibration complete (" << out.frames_used << " frames):\n"
+    if (save_average_ppm) {
+        write_ppm_p6("monitor_calibration_avg.ppm", result.average_frame);
+    }
+
+    std::cout << "Calibration complete (" << result.frames_used << " frames):\n"
               << "  mean R/G/B = " << mean_r << " / " << mean_g << " / " << mean_b << "\n"
               << "  WB gains   = " << params.gain_r << " / " << params.gain_g << " / " << params.gain_b << "\n"
               << "  avg luma   = " << params.avg_luma << "\n"
               << "  gamma est  = " << params.gamma << "\n";
 
-    return out;
+    return result;
 }
 
 } // namespace cortex
