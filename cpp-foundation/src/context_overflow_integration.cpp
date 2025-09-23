@@ -1,10 +1,9 @@
 #include "context_overflow_guard.hpp"
 #include "precision_safe_threading.hpp"
 #include "intelligent_term_delegator.hpp"
+#include "static_frame_generator.hpp"
 
 using namespace cortex;
-
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
 int main() {
     std::cout << "🤯 CONTEXT OVERFLOW GUARD + COMPLETE CORTEX INTEGRATION\n";
@@ -12,7 +11,7 @@ int main() {
 
     // 🎭 Test with overflow protection and recursive monitoring
     {
-        overflow::ContextOverflowGuard guard(
+        ContextOverflowGuard guard(
             1024,      // base_allocation
             1,         // overflow_threshold_mb (low to trigger overflow)
             true,      // enable_worker_delegation
@@ -25,10 +24,10 @@ int main() {
 
         try {
             // 🧠 Intelligent term delegation
-            delegation::IntelligentTermDelegator delegator(8);
+            IntelligentTermDelegator delegator(8);
 
             // 🎯 Precision-safe threading
-            threading::PrecisionSafeThreading precision_threading;
+            PrecisionSafeThreading precision_threading;
 
             // Create EM spectrum data that will trigger overflow
             std::vector<CosmicPrecision> large_spectrum_data;
@@ -82,7 +81,7 @@ int main() {
     }
 
     // 📊 Print comprehensive statistics
-    overflow::ContextOverflowGuard::print_global_statistics();
+    ContextOverflowGuard::print_global_statistics();
 
     std::cout << "\n🎉 COMPLETE CORTEX INTEGRATION WITH RECURSIVE OVERFLOW PROTECTION!\n";
     std::cout << "🤯 Self-capturing contexts monitoring themselves = ACHIEVED!\n";

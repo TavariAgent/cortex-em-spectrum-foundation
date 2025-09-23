@@ -23,6 +23,7 @@
 #include "live_viewer_win.hpp"
 #include "frame_recorder.hpp"
 
+
 static bool eq_flag(const char* a, const char* b) { return std::strcmp(a,b)==0; }
 
 int main(int argc, char** argv) {
@@ -134,6 +135,23 @@ int main(int argc, char** argv) {
         std::cout << "Capture complete.\n";
         return 0;
     }
+        static cortex::DeviationRouter router({64,32, 0.05, 4});
+        static cortex::FrameCache cache;
+
+        static std::unique_ptr<cortex::ElectromagneticFrame> prev_frame;
+        if (!prev_frame) prev_frame = std::make_unique<cortex::ElectromagneticFrame>(frame.width, frame.height), *prev_frame = frame;
+
+        router.set_resolution(frame.width, frame.height);
+        router.analyze_and_route(frame, prev_frame.get(), cache);
+
+        // Drain a few ROI tasks (CPU placeholder for offload)
+        std::shared_ptr<cortex::SubpixelChunk> roi;
+        int drained = 0;
+        while (drained < 16 && cache.roi_chunks.pop(roi)) {
+            // TODO: offload to CUDA kernel; for now, just acknowledge
+            ++drained;
+        }
+        *prev_frame = frame;
 #else
     if (do_capture) {
         std::cout << "Screen capture not supported on this platform.\n";

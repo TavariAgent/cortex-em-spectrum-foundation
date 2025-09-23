@@ -1,10 +1,9 @@
 #include "context_overflow_guard.hpp"
 #include "precision_safe_threading.hpp"
 #include "intelligent_term_delegator.hpp"
+#include "static_frame_generator.hpp"
 
 using namespace cortex;
-
-using CosmicPrecision = boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>;
 
 int main() {
     std::cout << "🎯 DYNAMIC PERFORMANCE TUNING + COMPLETE CORTEX INTEGRATION\n";
@@ -16,7 +15,7 @@ int main() {
         std::cout << std::string(60, '-') << "\n";
 
         {
-            overflow::ContextOverflowGuard guard(
+            ContextOverflowGuard guard(
                 1024 * test_round,  // Increasing base allocation
                 1,                  // Low threshold to trigger overflow
                 true,              // enable_worker_delegation
@@ -29,10 +28,10 @@ int main() {
 
             try {
                 // 🧠 Intelligent term delegation with dynamic sizing
-                delegation::IntelligentTermDelegator delegator(8);
+                IntelligentTermDelegator delegator(8);
 
                 // 🎯 Precision-safe threading with dynamic performance tuning
-                threading::PrecisionSafeThreading precision_threading;
+                PrecisionSafeThreading precision_threading;
 
                 // Create test data that will trigger dynamic adjustments
                 std::vector<CosmicPrecision> test_data;
@@ -92,7 +91,7 @@ int main() {
 
         // Print dynamic performance statistics after each round
         std::cout << "\n📊 Dynamic Performance Statistics After Round " << test_round << ":\n";
-        overflow::ContextOverflowGuard::print_global_statistics();
+        ContextOverflowGuard::print_global_statistics();
     }
 
     std::cout << "\n🎉 DYNAMIC PERFORMANCE TUNING DEMONSTRATION COMPLETE!\n";
