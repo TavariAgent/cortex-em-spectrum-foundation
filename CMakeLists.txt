@@ -52,7 +52,18 @@ endif()
 
 # -------- Warnings and optimizations by mode --------
 if(MSVC)
-    add_compile_options($<$<CONFIG:Debug>:/W4 /permissive-> $<$<CONFIG:Release>:/W4 /permissive->)
+    # Add one generator expression per flag (don’t group with semicolons)
+    add_compile_options(
+            $<$<CONFIG:Debug>:/W4>
+            $<$<CONFIG:Debug>:/permissive->
+            $<$<CONFIG:Release>:/W4>
+            $<$<CONFIG:Release>:/permissive->
+            $<$<CONFIG:RelWithDebInfo>:/W4>
+            $<$<CONFIG:RelWithDebInfo>:/permissive->
+            $<$<CONFIG:MinSizeRel>:/W4>
+            $<$<CONFIG:MinSizeRel>:/permissive->
+    )
+
     if(BUILD_MODE STREQUAL "perf" OR BUILD_MODE STREQUAL "release")
         add_compile_options(/O2 /DNDEBUG /DNOMINMAX)
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -126,9 +137,7 @@ target_include_directories(cortex_core PUBLIC
         ${PROJECT_ROOT}/cpp-foundation/include
         ${PROJECT_ROOT}
 )
-# Inherit precision macro + includes
 target_link_libraries(cortex_core PUBLIC cortex_em_spectrum Threads::Threads)
-
 target_compile_definitions(cortex_core PUBLIC
         $<$<STREQUAL:${BUILD_MODE},dev>:CORTEX_BUILD_DEV=1>
         $<$<STREQUAL:${BUILD_MODE},test>:CORTEX_BUILD_TEST=1>
@@ -172,10 +181,9 @@ endif()
 if(CORTEX_EM_SPECTRUM_ENABLE_CUDA)
     find_package(CUDAToolkit REQUIRED)
     enable_language(CUDA)
-
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
         if(CMAKE_VERSION VERSION_LESS "3.24")
-            set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "CUDA archs" FORCE)  # GTX 1060 baseline
+            set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "CUDA archs" FORCE)
         else()
             set(CMAKE_CUDA_ARCHITECTURES "61" CACHE STRING "CUDA archs" FORCE)
         endif()
@@ -226,7 +234,6 @@ if(BUILD_MODE STREQUAL "test")
         if(WIN32)
             target_link_libraries(run_tests PRIVATE user32 gdi32)
         endif()
-
         add_custom_target(quick_tests
                 COMMAND "$<TARGET_FILE:run_tests>"
                 DEPENDS run_tests
