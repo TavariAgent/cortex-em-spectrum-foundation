@@ -1,5 +1,5 @@
 # ================================================================ Current CLI Flags (capture main)
-
+## Power shell
 `--capture N` _(required to enter capture mode; N = display index, usually 1)_ `--live` Show a live window 
 `--fps F Target capture FPS` **(default 30)** `--seconds S Duration;` **0 or negative => single snapshot frame** `--resize WxH` Resize each captured frame before processing
 `--record` **base Save non-duplicate frames as base_000000.bmp** `--no-static-gate` **Disable static scene preflight (default gate ON)** `--static-sec` **X Required continuous stability seconds (default 1.0)** 
@@ -42,3 +42,16 @@ _(If you want filters applied even without specifying individual ones, use --fil
 ### ================================================================= 5. Understanding “Duplicate frames skipped”
 **You’ll see:** Capture complete. Duplicate frames skipped=NN That counter increments when a frame’s computed operand map + byte match equals the previous frame _(after resize & filters)._ 
 Only non‑identical frames are written with --record. LLMFramePool also coalesces identical runs internally _(for future streaming / export)._
+
+# ================================================================ Export to MP4 (dedupe-aware, real-time)
+
+If you recorded deduped frames (`--record captures/frame`), build a concat manifest and encode:
+
+From the captures directory:
+
+`python ..\python-helpers\create_manifest.py --dir . --pattern "frame_*.bmp" --fps 30 --mode index
+$mf = Get-ChildItem *_frames_index.txt | Sort-Object LastWriteTime -Descending | Select-Object -ExpandProperty FullName -First 1
+ffmpeg -f concat -safe 0 -i "$mf" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p -crf 18 out_index.mp4
+`
+
+Tip: use `--mode timestamp` if you want durations from file times instead of frame index gaps.
