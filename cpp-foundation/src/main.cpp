@@ -6,13 +6,14 @@
 #include <cstring>
 #include <thread>
 #include <string>
+#include <memory>
+#include <cstdlib> // for std::strtoull, std::atoi
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include "static_frame_generator.hpp"
 #include "static_frame_parallel.hpp"
 #include "or_switch.hpp"
 #include "quad_array_manager.hpp"
-#include "ppm_io.hpp"
 #include "calibration_10frame.hpp"
 #include "calibration_io.hpp"
 #include "image_corrections.hpp"
@@ -20,9 +21,12 @@
 // Capture stack (ensure these headers exist in cpp-foundation/include/)
 #include "screen_capture_win.hpp"
 #include "image_ops.hpp"
-#include "live_viewer_win.hpp"
+#include "llm_frame_pool.hpp"
 #include "frame_recorder.hpp"
+#include "operand_map.hpp" // NEW: frame signatures for dedupe
+#include "live_viewer_win.hpp"
 
+namespace Sig = cortex::sig;
 
 static bool eq_flag(const char* a, const char* b) { return std::strcmp(a,b)==0; }
 
@@ -32,8 +36,8 @@ int main(int argc, char** argv) {
 
     // Defaults for spectrum render
     size_t width = 400, height = 300;
-    int depth = 16;            // 8 or 16
-    bool dither8 = false;
+    int depth = 16;            // 8 or 16 (affects internal path; output is BMP8)
+    bool dither8 = false;      // retained for compatibility, no effect on BMP
     bool skip_calib = false;
     std::string load_calib_path;
     std::string save_calib_path = "calibration.json";
@@ -47,9 +51,7 @@ int main(int argc, char** argv) {
     size_t cap_resize_w = 0, cap_resize_h = 0; // 0 => native
     std::string record_base; // if set, save frames as BMP: base_000000.bmp ...
 
-    // Parse CLI: cortex_em_cli [W H] [--depth 8|16] [--dither] [--skip-calib]
-    //            [--load-calib file] [--save-calib file]
-    //            [--capture N] [--live] [--seconds S] [--fps F] [--resize WxH] [--record base]
+    // Parse CLI
     int i = 1;
     if (argc >= 3 && argv[1][0] != '-' && argv[2][0] != '-') {
         width  = static_cast<size_t>(std::strtoull(argv[1], nullptr, 10));
@@ -68,9 +70,10 @@ int main(int argc, char** argv) {
         else if (eq_flag(argv[i], "--fps") && i+1 < argc) { cap_fps = std::atoi(argv[++i]); }
         else if (eq_flag(argv[i], "--resize") && i+1 < argc) {
             const char* s = argv[++i];
-            const char* x = std::strchr(s, 'x');
+            const char* x = std::strchr(s, 'x'); // accepts "1280x720"
+            if (!x) x = std::strchr(s, 'X');     // also accept uppercase
             if (x) {
-                cap_resize_w = static_cast<size_t>(std::strtoull(s, nullptr, 10));
+                cap_resize_w = static_cast<size_t>(std::strtoull(s,   nullptr, 10));
                 cap_resize_h = static_cast<size_t>(std::strtoull(x+1, nullptr, 10));
             }
         }
@@ -94,6 +97,7 @@ int main(int argc, char** argv) {
                   << " @" << mon->x << "," << mon->y
                   << (mon->primary ? " [PRIMARY]\n" : "\n");
 
+        // Live viewer first (before use)
         LiveViewerWin viewer;
         if (live_view) {
             const int vw = cap_resize_w ? static_cast<int>(cap_resize_w) : mon->width;
@@ -101,65 +105,80 @@ int main(int argc, char** argv) {
             viewer.create(vw, vh, "Cortex Live Viewer (DISPLAY" + std::to_string(capture_display_index) + ")");
         }
 
+        // Timing before loop
         const int total_frames = std::max(1, cap_seconds * std::max(1, cap_fps));
         const auto frame_interval = std::chrono::microseconds(1'000'000 / std::max(1, cap_fps));
         auto next_time = std::chrono::high_resolution_clock::now();
 
+        // RAM-first pool
+        LLMFramePool pool(/*retention_sec*/ 600.0, /*budget_mb*/ 2048, cap_fps);
+        pool.set_single_static_mode(true, /*grace_seconds*/ 1.0); // collapse after 1s of no change
+
+        // Optional dedupe state (only relevant if writing BMPs)
+        bool have_prev = false;
+        std::shared_ptr<RawImage> prev_sp; // avoid deep copy
+        Sig::OperandMap prev_map{};
+        size_t duplicates_skipped = 0;
+
         for (int f = 0; f < total_frames; ++f) {
             RawImage raw = capture_monitor_bgra_by_display_index(capture_display_index);
-            if (!raw.ok()) {
-                std::cout << "Capture failed on frame " << f << "\n";
-                continue;
-            }
+            if (!raw.ok()) continue;
 
-            // Keep storage alive locally; point show_ptr at whichever image is current
-            RawImage resized;                 // storage for optional resize
-            const RawImage* show_ptr = &raw;  // by default, show the raw frame
+            // Optional resize
+            RawImage working = raw;
             if (cap_resize_w && cap_resize_h) {
-                resized = resize_bgra_bilinear(raw, cap_resize_w, cap_resize_h);
-                if (resized.ok()) show_ptr = &resized;
+                RawImage resized = resize_bgra_bilinear(raw, cap_resize_w, cap_resize_h);
+                if (resized.ok()) working = std::move(resized);
             }
 
-            if (live_view) viewer.update(*show_ptr);
+            // Move to shared_ptr for RAM pool and unified access
+            auto sp = std::make_shared<RawImage>(std::move(working));
 
+            // Compute signature and dedupe against previous
+            const Sig::OperandMap curr_map = Sig::compute_operand_map(*sp);
+            const bool identical = have_prev && prev_sp && Sig::frames_identical(*sp, *prev_sp, curr_map, prev_map);
+
+            // Live view
+            if (live_view) viewer.update(*sp);
+
+            // Push to RAM pool (coalescing is handled inside the pool)
+            const double tsec = static_cast<double>(f) / std::max(1, cap_fps);
+            pool.push(sp, f, tsec);
+
+            // Optional BMP write with dedupe
             if (!record_base.empty()) {
-                std::string path = make_numbered(record_base, f, ".bmp", 6);
-                RawImageBMPView view{ show_ptr->bgra.data(), show_ptr->width, show_ptr->height };
-                write_bmp32(path, view);
+                if (!identical) {
+                    std::string path = make_numbered(record_base, f, ".bmp", 6);
+                    RawImageBMPView view{ sp->bgra.data(), sp->width, sp->height };
+                    write_bmp32(path, view);
+                } else {
+                    ++duplicates_skipped;
+                }
             }
+
+            // Update previous dedupe state
+            prev_sp = sp;       // keep pointer (no deep copy)
+            prev_map = curr_map;
+            have_prev = true;
 
             next_time += frame_interval;
             std::this_thread::sleep_until(next_time);
         }
 
-        std::cout << "Capture complete.\n";
-        return 0;
-    }
-        static cortex::DeviationRouter router({64,32, 0.05, 4});
-        static cortex::FrameCache cache;
-
-        static std::unique_ptr<cortex::ElectromagneticFrame> prev_frame;
-        if (!prev_frame) prev_frame = std::make_unique<cortex::ElectromagneticFrame>(frame.width, frame.height), *prev_frame = frame;
-
-        router.set_resolution(frame.width, frame.height);
-        router.analyze_and_route(frame, prev_frame.get(), cache);
-
-        // Drain a few ROI tasks (CPU placeholder for offload)
-        std::shared_ptr<cortex::SubpixelChunk> roi;
-        int drained = 0;
-        while (drained < 16 && cache.roi_chunks.pop(roi)) {
-            // TODO: offload to CUDA kernel; for now, just acknowledge
-            ++drained;
+        std::cout << "Capture complete.";
+        if (!record_base.empty()) {
+            std::cout << " Duplicate frames skipped (evicted): " << duplicates_skipped;
         }
-        *prev_frame = frame;
-#else
-    if (do_capture) {
-        std::cout << "Screen capture not supported on this platform.\n";
-        return 1;
+        std::cout << "\n";
+
+        // Example: export last 20s to MP4 after capture (no disk during capture)
+        // pool.export_recent_to_video(20.0, "capture.mp4", cap_fps);
+
+        return 0;
     }
 #endif
 
-    // ============== existing spectrum render path ==============
+    // ============== spectrum render path (PPM -> BMP) ==============
 
     // 0) Acquire calibration (load or capture)
     CalibrationParams calib_params;
@@ -207,20 +226,21 @@ int main(int argc, char** argv) {
     auto [frame1, mask1, cal1] = pipeline.render_next_frame(gen);
     auto [frame,  mask2, cal2] = pipeline.render_next_frame(gen);
 
-    // 3) Save raw (for A/B)
-    write_ppm_p6("electromagnetic_spectrum_parallel.ppm", frame);
+    // 3) Save raw and corrected as BMP instead of PPM
+    {
+        // Raw
+        RawImage raw_bgra = frame_to_bgra(frame, 1.0);
+        RawImageBMPView vraw{ raw_bgra.bgra.data(), raw_bgra.width, raw_bgra.height };
+        write_bmp32("electromagnetic_spectrum_parallel.bmp", vraw);
 
-    // 4) Apply calibration (WB + auto-exposure + gamma), then save
-    if (have_calib) {
-        double exposure = compute_auto_exposure(frame, calib_params, 0.18);
-        ElectromagneticFrame corrected = frame;
-        apply_corrections_inplace(corrected, calib_params, exposure);
-
-        if (depth == 16) {
-            write_ppm_p6_16("electromagnetic_spectrum_parallel_corrected16.ppm", corrected);
-        } else {
-            if (dither8) write_ppm_p6_dither8("electromagnetic_spectrum_parallel_corrected.ppm", corrected);
-            else         write_ppm_p6("electromagnetic_spectrum_parallel_corrected.ppm", corrected);
+        // Corrected (WB + exposure + gamma), then BMP
+        if (have_calib) {
+            double exposure = compute_auto_exposure(frame, calib_params, 0.18);
+            ElectromagneticFrame corrected = frame;
+            apply_corrections_inplace(corrected, calib_params, exposure);
+            RawImage corr_bgra = frame_to_bgra(corrected, /*gamma*/ calib_params.gamma);
+            RawImageBMPView vc{ corr_bgra.bgra.data(), corr_bgra.width, corr_bgra.height };
+            write_bmp32("electromagnetic_spectrum_parallel_corrected.bmp", vc);
         }
     }
 

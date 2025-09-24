@@ -8,6 +8,7 @@
 #include <memory>
 #include <chrono>
 #include <algorithm>
+#include <cmath> // for std::pow, std::sin, std::cos, std::tan, std::isnan, std::isinf
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 #ifdef CUDA_AVAILABLE
@@ -25,11 +26,6 @@ namespace cortex {
         boost::multiprecision::cpp_dec_float<CORTEX_EM_SPECTRUM_PRECISION>
     >;
 }
-
-#ifdef CUDA_AVAILABLE
-#include <cuda_runtime.h>
-#include <cublas_v2.h>
-#endif
 
 namespace cortex {
 
@@ -59,18 +55,18 @@ struct GPUPerformanceStats {
 
     // 📈 CALCULATED PERFORMANCE METRICS
     double get_gpu_usage_percentage() const {
-        return total_operations.load() > 0 ?
-               (static_cast<double>(gpu_operations.load()) / total_operations.load()) * 100.0 : 0.0;
+        const size_t total = total_operations.load();
+        return total > 0 ? (static_cast<double>(gpu_operations.load()) / total) * 100.0 : 0.0;
     }
 
     double get_cpu_fallback_percentage() const {
-        return total_operations.load() > 0 ?
-               (static_cast<double>(cpu_fallbacks.load()) / total_operations.load()) * 100.0 : 0.0;
+        const size_t total = total_operations.load();
+        return total > 0 ? (static_cast<double>(cpu_fallbacks.load()) / total) * 100.0 : 0.0;
     }
 
     double get_error_rate_percentage() const {
-        return total_operations.load() > 0 ?
-               (static_cast<double>(memory_errors.load()) / total_operations.load()) * 100.0 : 0.0;
+        const size_t total = total_operations.load();
+        return total > 0 ? (static_cast<double>(memory_errors.load()) / total) * 100.0 : 0.0;
     }
 
     double get_efficiency_score() const {
@@ -78,13 +74,13 @@ struct GPUPerformanceStats {
     }
 
     double get_average_gpu_time() const {
-        return gpu_operations.load() > 0 ?
-               total_gpu_time.load() / gpu_operations.load() : 0.0;
+        const size_t n = gpu_operations.load();
+        return n > 0 ? total_gpu_time.load() / n : 0.0;
     }
 
     double get_average_cpu_time() const {
-        return cpu_fallbacks.load() > 0 ?
-               total_cpu_time.load() / cpu_fallbacks.load() : 0.0;
+        const size_t n = cpu_fallbacks.load();
+        return n > 0 ? total_cpu_time.load() / n : 0.0;
     }
 };
 
@@ -97,8 +93,8 @@ private:
     std::mutex gpu_lock;
 
 #ifdef CUDA_AVAILABLE
-    cublasHandle_t cublas_handle;
-    int device_id;
+    cublasHandle_t cublas_handle{};
+    int device_id{-1};
 #endif
 
     // 🎯 GPU HARDWARE DETECTION
@@ -126,8 +122,12 @@ private:
 
 public:
     explicit AdaptiveGPUDelegator()
-        : gpu_available(false), cuda_initialized(false), device_id(-1) {
-
+#ifdef CUDA_AVAILABLE
+        : gpu_available(false), cuda_initialized(false), cublas_handle(nullptr), device_id(-1)
+#else
+        : gpu_available(false), cuda_initialized(false)
+#endif
+    {
         std::cout << "🔧 Initializing Adaptive GPU Delegator...\n";
 
         // Initialize GPU configuration
@@ -153,8 +153,8 @@ public:
 
     // 🤔 INTELLIGENT GPU DELEGATION DECISION
     bool should_use_gpu(const std::string& operation_type,
-                       size_t array_size = 0,
-                       double complexity = 0.0) const {
+                        size_t array_size = 0,
+                        double complexity = 0.0) const {
 
         if (!gpu_available || !config.enable_gpu) {
             return false;
@@ -185,34 +185,35 @@ public:
 
     // 🚀 GPU EXPONENTIAL CALCULATION
     CosmicPrecision gpu_exponential(const CosmicPrecision& base,
-                                   const CosmicPrecision& exponent,
-                                   int precision = 141) {
+                                    const CosmicPrecision& exponent,
+                                    int precision = 141) {
 
         if (!should_use_gpu("exponential", 0, static_cast<double>(boost::multiprecision::abs(exponent)))) {
             return cpu_exponential(base, exponent, precision);
         }
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         try {
             std::lock_guard<std::mutex> lock(gpu_lock);
             stats.gpu_operations++;
-            stats.total_operations++;
+            // NOTE: don't increment total_operations yet; do it on success to avoid double count on fallback.
 
 #ifdef CUDA_AVAILABLE
             // Convert to GPU-compatible format
-            double base_d = static_cast<double>(base);
-            double exp_d = static_cast<double>(exponent);
+            const double base_d = static_cast<double>(base);
+            const double exp_d  = static_cast<double>(exponent);
 
             // GPU calculation
-            double result_d = pow(base_d, exp_d);
+            const double result_d = std::pow(base_d, exp_d);
 
             // Convert back to cosmic precision
-            CosmicPrecision result(std::to_string(result_d));
+            const CosmicPrecision result(std::to_string(result_d));
 
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration<double>(end_time - start_time).count();
+            const auto end_time = std::chrono::high_resolution_clock::now();
+            const auto duration = std::chrono::duration<double>(end_time - start_time).count();
             stats.total_gpu_time += duration;
+            stats.total_operations++; // count completed op (GPU path)
 
             return result;
 #else
@@ -222,43 +223,44 @@ public:
         } catch (const std::exception& e) {
             stats.memory_errors++;
             std::cout << "⚠️ GPU exponential failed: " << e.what() << " - using CPU fallback\n";
-            return cpu_exponential(base, exponent, precision);
+            return cpu_exponential(base, exponent, precision); // CPU path will increment totals
         }
     }
 
     // ⚡ GPU POWER CALCULATION
     CosmicPrecision gpu_power(const CosmicPrecision& base,
-                             const CosmicPrecision& exponent,
-                             int precision = 141) {
+                              const CosmicPrecision& exponent,
+                              int precision = 141) {
 
-        if (!should_use_gpu("power", 0, static_cast<double>(abs(exponent)))) {
+        if (!should_use_gpu("power", 0, static_cast<double>(boost::multiprecision::abs(exponent)))) {
             return cpu_power(base, exponent, precision);
         }
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         try {
             std::lock_guard<std::mutex> lock(gpu_lock);
             stats.gpu_operations++;
-            stats.total_operations++;
+            // no total increment yet (avoid double-count on fallback)
 
 #ifdef CUDA_AVAILABLE
-            double base_d = static_cast<double>(base);
-            double exp_d = static_cast<double>(exponent);
+            const double base_d = static_cast<double>(base);
+            const double exp_d  = static_cast<double>(exponent);
 
             // GPU power calculation with validation
-            double result_d = pow(base_d, exp_d);
+            const double result_d = std::pow(base_d, exp_d);
 
             // Validate result
             if (std::isnan(result_d) || std::isinf(result_d)) {
                 throw std::runtime_error("GPU calculation produced invalid result");
             }
 
-            CosmicPrecision result(std::to_string(result_d));
+            const CosmicPrecision result(std::to_string(result_d));
 
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration<double>(end_time - start_time).count();
+            const auto end_time = std::chrono::high_resolution_clock::now();
+            const auto duration = std::chrono::duration<double>(end_time - start_time).count();
             stats.total_gpu_time += duration;
+            stats.total_operations++; // count completed op (GPU path)
 
             return result;
 #else
@@ -278,66 +280,54 @@ public:
         const std::vector<CosmicPrecision>& array2,
         const std::string& operation = "add") {
 
-        size_t array_size = std::max(array1.size(), array2.size());
+        const size_t array_size = std::max(array1.size(), array2.size());
 
         if (!should_use_gpu("arithmetic", array_size)) {
             return cpu_vector_operations(array1, array2, operation);
         }
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         try {
             std::lock_guard<std::mutex> lock(gpu_lock);
             stats.gpu_operations++;
-            stats.total_operations++;
+            // no total increment yet (avoid double-count on fallback)
 
 #ifdef CUDA_AVAILABLE
             // Convert to GPU-compatible arrays
-            std::vector<double> arr1_d, arr2_d;
-            for (const auto& val : array1) {
-                arr1_d.push_back(static_cast<double>(val));
-            }
-            for (const auto& val : array2) {
-                arr2_d.push_back(static_cast<double>(val));
-            }
+            std::vector<double> arr1_d; arr1_d.reserve(array1.size());
+            std::vector<double> arr2_d; arr2_d.reserve(array2.size());
+            for (const auto& val : array1) arr1_d.push_back(static_cast<double>(val));
+            for (const auto& val : array2) arr2_d.push_back(static_cast<double>(val));
 
             // Ensure equal sizes
-            size_t max_size = std::max(arr1_d.size(), arr2_d.size());
+            const size_t max_size = std::max(arr1_d.size(), arr2_d.size());
             arr1_d.resize(max_size, 0.0);
             arr2_d.resize(max_size, 0.0);
 
-            // GPU vector operation
+            // GPU vector operation (placeholder CPU loop for now)
             std::vector<double> result_d(max_size);
-
             if (operation == "add") {
-                for (size_t i = 0; i < max_size; ++i) {
-                    result_d[i] = arr1_d[i] + arr2_d[i];
-                }
+                for (size_t i = 0; i < max_size; ++i) result_d[i] = arr1_d[i] + arr2_d[i];
             } else if (operation == "subtract") {
-                for (size_t i = 0; i < max_size; ++i) {
-                    result_d[i] = arr1_d[i] - arr2_d[i];
-                }
+                for (size_t i = 0; i < max_size; ++i) result_d[i] = arr1_d[i] - arr2_d[i];
             } else if (operation == "multiply") {
-                for (size_t i = 0; i < max_size; ++i) {
-                    result_d[i] = arr1_d[i] * arr2_d[i];
-                }
+                for (size_t i = 0; i < max_size; ++i) result_d[i] = arr1_d[i] * arr2_d[i];
             } else if (operation == "divide") {
-                for (size_t i = 0; i < max_size; ++i) {
-                    result_d[i] = arr2_d[i] != 0.0 ? arr1_d[i] / arr2_d[i] : 0.0;
-                }
+                for (size_t i = 0; i < max_size; ++i) result_d[i] = arr2_d[i] != 0.0 ? arr1_d[i] / arr2_d[i] : 0.0;
             } else {
                 throw std::runtime_error("Unsupported operation: " + operation);
             }
 
             // Convert back to cosmic precision
             std::vector<CosmicPrecision> result;
-            for (double val : result_d) {
-                result.emplace_back(std::to_string(val));
-            }
+            result.reserve(result_d.size());
+            for (double v : result_d) result.emplace_back(std::to_string(v));
 
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration<double>(end_time - start_time).count();
+            const auto end_time = std::chrono::high_resolution_clock::now();
+            const auto duration = std::chrono::duration<double>(end_time - start_time).count();
             stats.total_gpu_time += duration;
+            stats.total_operations++; // count completed op (GPU path)
 
             return result;
 #else
@@ -353,38 +343,34 @@ public:
 
     // 📐 GPU TRIGONOMETRIC OPERATIONS
     CosmicPrecision gpu_trigonometric(const CosmicPrecision& x,
-                                     const std::string& function = "sin") {
+                                      const std::string& function = "sin") {
 
         if (!should_use_gpu("trigonometric", 0, 1000.0)) {
             return cpu_trigonometric(x, function);
         }
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         try {
             std::lock_guard<std::mutex> lock(gpu_lock);
             stats.gpu_operations++;
-            stats.total_operations++;
+            // no total increment yet
 
 #ifdef CUDA_AVAILABLE
-            double x_d = static_cast<double>(x);
+            const double x_d = static_cast<double>(x);
             double result_d = 0.0;
 
-            if (function == "sin") {
-                result_d = sin(x_d);
-            } else if (function == "cos") {
-                result_d = cos(x_d);
-            } else if (function == "tan") {
-                result_d = tan(x_d);
-            } else {
-                throw std::runtime_error("Unsupported trigonometric function: " + function);
-            }
+            if (function == "sin")      result_d = std::sin(x_d);
+            else if (function == "cos") result_d = std::cos(x_d);
+            else if (function == "tan") result_d = std::tan(x_d);
+            else throw std::runtime_error("Unsupported trigonometric function: " + function);
 
-            CosmicPrecision result(std::to_string(result_d));
+            const CosmicPrecision result(std::to_string(result_d));
 
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration<double>(end_time - start_time).count();
+            const auto end_time = std::chrono::high_resolution_clock::now();
+            const auto duration = std::chrono::duration<double>(end_time - start_time).count();
             stats.total_gpu_time += duration;
+            stats.total_operations++; // count completed op (GPU path)
 
             return result;
 #else
@@ -401,7 +387,7 @@ public:
 private:
     // 🔧 INITIALIZATION METHODS
     GPUConfig initialize_gpu_config() {
-        std::string detected_gpu = detect_gpu_hardware();
+        const std::string detected_gpu = detect_gpu_hardware();
 
         auto it = gpu_configs.find(detected_gpu);
         if (it != gpu_configs.end()) {
@@ -420,12 +406,11 @@ private:
             cudaError_t error = cudaGetDeviceCount(&device_count);
 
             if (error == cudaSuccess && device_count > 0) {
-                cudaDeviceProp prop;
+                cudaDeviceProp prop{};
                 cudaGetDeviceProperties(&prop, 0);
 
                 std::string gpu_name(prop.name);
 
-                // Map GPU names to configurations
                 if (gpu_name.find("GTX 1060") != std::string::npos) {
                     return "GTX 1060";
                 } else if (gpu_name.find("RTX 4070 Super") != std::string::npos) {
@@ -491,26 +476,26 @@ private:
 
     // 🐌 CPU FALLBACK METHODS
     CosmicPrecision cpu_exponential(const CosmicPrecision& base,
-                                   const CosmicPrecision& exponent,
-                                   int precision) {
-        auto start_time = std::chrono::high_resolution_clock::now();
+                                    const CosmicPrecision& exponent,
+                                    int /*precision*/) {
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         stats.cpu_fallbacks++;
         stats.total_operations++;
 
-        // Use boost::multiprecision for high precision
-        auto result = boost::multiprecision::pow(base, exponent);
+        // High precision calculation
+        const auto result = boost::multiprecision::pow(base, exponent);
 
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration<double>(end_time - start_time).count();
+        const auto end_time = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration<double>(end_time - start_time).count();
         stats.total_cpu_time += duration;
 
         return result;
     }
 
     CosmicPrecision cpu_power(const CosmicPrecision& base,
-                             const CosmicPrecision& exponent,
-                             int precision) {
+                              const CosmicPrecision& exponent,
+                              int precision) {
         return cpu_exponential(base, exponent, precision);
     }
 
@@ -519,13 +504,14 @@ private:
         const std::vector<CosmicPrecision>& array2,
         const std::string& operation) {
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         stats.cpu_fallbacks++;
         stats.total_operations++;
 
         std::vector<CosmicPrecision> result;
-        size_t max_size = std::max(array1.size(), array2.size());
+        const size_t max_size = std::max(array1.size(), array2.size());
+        result.reserve(max_size);
 
         for (size_t i = 0; i < max_size; ++i) {
             const auto& a = array1[i % array1.size()];
@@ -542,32 +528,28 @@ private:
             }
         }
 
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration<double>(end_time - start_time).count();
+        const auto end_time = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration<double>(end_time - start_time).count();
         stats.total_cpu_time += duration;
 
         return result;
     }
 
     CosmicPrecision cpu_trigonometric(const CosmicPrecision& x,
-                                     const std::string& function) {
-        auto start_time = std::chrono::high_resolution_clock::now();
+                                      const std::string& function) {
+        const auto start_time = std::chrono::high_resolution_clock::now();
 
         stats.cpu_fallbacks++;
         stats.total_operations++;
 
         CosmicPrecision result("0");
 
-        if (function == "sin") {
-            result = boost::multiprecision::sin(x);
-        } else if (function == "cos") {
-            result = boost::multiprecision::cos(x);
-        } else if (function == "tan") {
-            result = boost::multiprecision::tan(x);
-        }
+        if (function == "sin")      result = boost::multiprecision::sin(x);
+        else if (function == "cos") result = boost::multiprecision::cos(x);
+        else if (function == "tan") result = boost::multiprecision::tan(x);
 
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration<double>(end_time - start_time).count();
+        const auto end_time = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration<double>(end_time - start_time).count();
         stats.total_cpu_time += duration;
 
         return result;
@@ -575,25 +557,24 @@ private:
 
 public:
     // 📊 PERFORMANCE REPORTING
-    GPUPerformanceStats get_performance_stats() const {
+    // Avoid copying (struct contains atomics)
+    const GPUPerformanceStats& get_performance_stats() const {
         return stats;
     }
 
     void print_performance_report() const {
-        auto local_stats = stats;
-
         std::cout << "\n🎯 ADAPTIVE GPU PERFORMANCE REPORT\n";
         std::cout << "=" << std::string(50, '=') << "\n";
-        std::cout << "🔢 Total Operations: " << local_stats.total_operations.load() << "\n";
-        std::cout << "🚀 GPU Operations: " << local_stats.gpu_operations.load()
-                  << " (" << local_stats.get_gpu_usage_percentage() << "%)\n";
-        std::cout << "🐌 CPU Fallbacks: " << local_stats.cpu_fallbacks.load()
-                  << " (" << local_stats.get_cpu_fallback_percentage() << "%)\n";
-        std::cout << "⚠️ Memory Errors: " << local_stats.memory_errors.load()
-                  << " (" << local_stats.get_error_rate_percentage() << "%)\n";
-        std::cout << "⭐ Efficiency Score: " << local_stats.get_efficiency_score() << "%\n";
-        std::cout << "⏱️ Avg GPU Time: " << local_stats.get_average_gpu_time() << "s\n";
-        std::cout << "⏱️ Avg CPU Time: " << local_stats.get_average_cpu_time() << "s\n";
+        std::cout << "🔢 Total Operations: " << stats.total_operations.load() << "\n";
+        std::cout << "🚀 GPU Operations: " << stats.gpu_operations.load()
+                  << " (" << stats.get_gpu_usage_percentage() << "%)\n";
+        std::cout << "🐌 CPU Fallbacks: " << stats.cpu_fallbacks.load()
+                  << " (" << stats.get_cpu_fallback_percentage() << "%)\n";
+        std::cout << "⚠️ Memory Errors: " << stats.memory_errors.load()
+                  << " (" << stats.get_error_rate_percentage() << "%)\n";
+        std::cout << "⭐ Efficiency Score: " << stats.get_efficiency_score() << "%\n";
+        std::cout << "⏱️ Avg GPU Time: " << stats.get_average_gpu_time() << "s\n";
+        std::cout << "⏱️ Avg CPU Time: " << stats.get_average_cpu_time() << "s\n";
 
         if (gpu_available) {
             std::cout << "\n⚙️ Current Configuration:\n";

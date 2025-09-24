@@ -36,5 +36,18 @@ Release/
 temp/
 log/
 
+# Captures and videos
+captures/
+cap_*.bmp
+*.mp4
+*.mov
+*.avi
+
+# Optional telemetry logs
+sysreport.jsonl
+
+# Generated images
+*.ppm
+
 # Sensitive Data
 config.local.h
