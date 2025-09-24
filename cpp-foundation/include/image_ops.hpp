@@ -69,4 +69,34 @@ inline ElectromagneticFrame bgra_to_frame(const RawImage& img) {
     return f;
 }
 
+// NEW: Convert ElectromagneticFrame (linear [0..1] channels) to BGRA8 RawImage for BMP export.
+// Optional gamma (default 1.0). Values are clamped to [0,1], scaled to 0..255.
+inline RawImage frame_to_bgra(const ElectromagneticFrame& f, double gamma = 1.0) {
+    RawImage out;
+    out.width = f.width; out.height = f.height;
+    out.bgra.resize(out.width * out.height * 4);
+
+    const double inv = (gamma > 0.0) ? (1.0 / gamma) : 1.0;
+    const size_t n = out.width * out.height;
+    for (size_t i = 0; i < n; ++i) {
+        const auto& px = f.pixels[i];
+        double r = std::clamp(static_cast<double>(px.red),   0.0, 1.0);
+        double g = std::clamp(static_cast<double>(px.green), 0.0, 1.0);
+        double b = std::clamp(static_cast<double>(px.blue),  0.0, 1.0);
+
+        if (gamma != 1.0) {
+            r = std::pow(r, inv);
+            g = std::pow(g, inv);
+            b = std::pow(b, inv);
+        }
+
+        uint8_t* d = &out.bgra[i*4];
+        d[0] = static_cast<uint8_t>(std::lround(b * 255.0));
+        d[1] = static_cast<uint8_t>(std::lround(g * 255.0));
+        d[2] = static_cast<uint8_t>(std::lround(r * 255.0));
+        d[3] = 255;
+    }
+    return out;
+}
+
 } // namespace cortex

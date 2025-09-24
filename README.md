@@ -61,6 +61,34 @@ With CUDA enabled:
 `cmake --install build --prefix install`
 _Installs built executables into install/bin_
 
+## Convert captured frames to video (preserve real-time)
+
+By default, capture dedupes static frames (only saves unique images). To make a normal-speed video, build an ffmpeg concat manifest that encodes each unique frame for the right duration (using frame index gaps), then encode.
+
+1) Generate the manifest (from the `captures` folder):
+```powershell
+Set-Location F:\cortex-em-spectrum-foundation\captures
+python ..\python-helpers\create_manifest.py --dir . --pattern "frame_*.bmp" --fps 30 --mode index
+```
+
+This writes a file like `2025YYYY_MMDDHHMMSS_frames_index.txt`.
+
+2) Encode to MP4 (preserves timing):
+```powershell
+$mf = Get-ChildItem *_frames_index.txt | Sort-Object LastWriteTime -Descending | Select-Object -ExpandProperty FullName -First 1
+ffmpeg -f concat -safe 0 -i "$mf" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p -crf 18 out_index.mp4
+```
+
+(Single-line)
+`$mf = Get-ChildItem *_frames_index.txt | Sort-Object LastWriteTime -Descending | Select-Object -ExpandProperty FullName -First 1; ffmpeg -f concat -safe 0 -i "$mf" -c:v libx264 -pix_fmt yuv420p -crf 18 out_index.mp4`
+
+Notes
+- If you prefer spacing by file timestamps, generate a time-based manifest instead:
+  ```
+  python ..\python-helpers\create_manifest.py --dir . --pattern "frame_*.bmp" --fps 30 --mode timestamp
+  ```
+- The dedupe behavior keeps capture light and fast; the manifest reconstructs static spans into the right durations so your video doesn’t “accelerate.”
+
 **Notes**
 Use `-DCMAKE_BUILD_TYPE=Debug` for debugging.
 If Ninja isn’t available, use your preferred generator (e.g., -G "Visual Studio 17 2022").
