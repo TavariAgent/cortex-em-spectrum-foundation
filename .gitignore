@@ -18,6 +18,7 @@ Release/
 *.suo
 *.user
 *.ncb
+.venv
 *.opensdf
 *.sdf
 .idea/

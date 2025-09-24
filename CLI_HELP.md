@@ -39,6 +39,6 @@ Resize to 1280x720, 60 FPS, record unique frames: cortex_em_cli --capture 1 --fp
 
 _(If you want filters applied even without specifying individual ones, use --filters plus the parameters.)_
 
-================================================================ 7. Understanding “Duplicate frames skipped”
+### ================================================================= 5. Understanding “Duplicate frames skipped”
 **You’ll see:** Capture complete. Duplicate frames skipped=NN That counter increments when a frame’s computed operand map + byte match equals the previous frame _(after resize & filters)._ 
 Only non‑identical frames are written with --record. LLMFramePool also coalesces identical runs internally _(for future streaming / export)._
