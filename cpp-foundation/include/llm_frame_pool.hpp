@@ -191,7 +191,7 @@ public:
     }
 
 private:
-    std::mutex mu_;
+    mutable std::mutex mu_;
     std::deque<Frame> frames_;
     size_t total_bytes_{0};
     double latest_ts_{0.0};
